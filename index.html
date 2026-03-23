@@ -1993,13 +1993,23 @@ async function onLoginSuccess(session) {
   state.currentUser = detectUserFromProfile(displayName, session.user.email);
   state.supaUserId  = session.user.id;
 
-  updateUserUI();
+  // Actualizar UI con el usuario actual
+  await buildUserMap();
   await loadAllDataFromSupabase();
   showScreen('screen-home');
   renderDashboard();
-  const al = document.getElementById('home-avatar-letter');
+  var al = document.getElementById('home-avatar-letter');
   if(al) al.textContent = uName(state.currentUser)[0];
-  refreshAvatars();
+  if(typeof refreshAvatars === 'function') refreshAvatars();
+  if(typeof initTheme === 'function') initTheme();
+}
+
+
+function updateUserUI() {
+  // Actualizar avatar y nombre en el topbar
+  var al = document.getElementById('home-avatar-letter');
+  if(al) al.textContent = uName(state.currentUser)[0];
+  if(typeof refreshAvatars === 'function') refreshAvatars();
 }
 
 function detectUserFromProfile(name, email) {
