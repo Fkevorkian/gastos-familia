@@ -905,7 +905,7 @@ body.light-mode .login-glow {
 <div id="app">
 
 <!-- ═══════════════════════════════════════════ LOGIN ═══════ -->
-<div id="screen-login" class="screen active">
+<div id="screen-login" class="screen">
   <div class="login-glow"></div>
   <div class="login-logo">Gastos</div>
   <div class="login-sub">Control financiero familiar</div>
@@ -2019,15 +2019,33 @@ async function doLogout() {
 
 // ── DETECTAR SESIÓN AL ARRANCAR ──
 async function checkSession() {
-  const { data: { session } } = await getSupa().auth.getSession();
-  if (session) {
-    await onLoginSuccess(session);
+  // Timeout de seguridad — si Supabase no responde en 4s, mostrar login
+  const timeout = setTimeout(function() {
+    console.warn('Supabase timeout — mostrando login');
+    showScreen('screen-login');
+  }, 4000);
+
+  try {
+    const { data, error } = await getSupa().auth.getSession();
+    clearTimeout(timeout);
+    if (error) throw error;
+    if (data && data.session) {
+      await onLoginSuccess(data.session);
+    } else {
+      showScreen('screen-login');
+    }
+  } catch(e) {
+    clearTimeout(timeout);
+    console.warn('Error al verificar sesión:', e);
+    showScreen('screen-login');
   }
-  // Escuchar cambios de auth (incluye redirect de Google)
-  getSupa().auth.onAuthStateChange(async (event, session) => {
+
+  // Escuchar cambios de auth (redirect de Google, logout, etc.)
+  getSupa().auth.onAuthStateChange(async function(event, session) {
     if (event === 'SIGNED_IN' && session && !_currentSession) {
       await onLoginSuccess(session);
     } else if (event === 'SIGNED_OUT') {
+      _currentSession = null;
       showScreen('screen-login');
     }
   });
@@ -2364,8 +2382,9 @@ function selectLoginUser(user, btn) {
 }
 
 function doLogin(type) {
-  // Legacy — usar doLoginSupabase() en su lugar
+  // Legacy — solo para compatibilidad, Supabase gestiona el login
   if(typeof doLoginSupabase==='function' && (!type || type!=='google')) { doLoginSupabase(); return; }
+  if(typeof doLoginGoogle==='function' && type==='google') { doLoginGoogle(); return; }
   state.currentUser = _loginUser;
   showScreen('screen-home');
   initApp();
