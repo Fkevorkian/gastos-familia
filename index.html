@@ -1391,15 +1391,16 @@ body.light-mode .login-glow {
     <div class="card">
       <div class="card-title" style="margin-bottom:12px;">Cuenta</div>
       <div class="settings-item">
-        <span class="settings-label">Usuario activo</span>
-        <span class="settings-value" id="settings-user">Juan Diego</span>
+        <span class="settings-label">Usuario</span>
+        <span class="settings-value" id="settings-user-name">Juan Diego</span>
       </div>
-      <div class="settings-item" onclick="switchUser()">
-        <span class="settings-label">Cambiar a Esther</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <div class="settings-item">
+        <span class="settings-label">Email</span>
+        <span class="settings-value" id="settings-user-email" style="font-size:12px;color:var(--text3);"></span>
       </div>
-      <div class="settings-item" onclick="doLogout()">
+      <div class="settings-item" onclick="doLogout()" style="cursor:pointer;">
         <span class="settings-label" style="color:var(--red);">Cerrar sesión</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </div>
     </div>
     <div class="card">
@@ -2896,9 +2897,12 @@ function changePassword() {
 
 function openSettings() {
   showScreen('screen-settings');
-  const name = uName(state.currentUser);
-  const el = document.getElementById('settings-user-name');
-  if(el) el.textContent = name;
+  // Nombre del usuario
+  var nameEl = document.getElementById('settings-user-name');
+  if(nameEl) nameEl.textContent = uName(state.currentUser);
+  // Email de Supabase
+  var emailEl = document.getElementById('settings-user-email');
+  if(emailEl && _supaUser) emailEl.textContent = _supaUser.email || '';
   refreshAvatars();
 }
 
