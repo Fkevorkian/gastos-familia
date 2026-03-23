@@ -2247,10 +2247,19 @@ async function loadTransactionsFromSupa() {
 }
 
 async function saveTxToSupa(tx) {
+  // Resolver el supaUserId del owner (puede ser diferente al logado)
+  var ownerSupaId = state.supaUserId; // fallback: el logado
+  if (tx.ownerUser && tx.ownerUser !== state.currentUser) {
+    // Buscar en el mapa guardado
+    var userMap = JSON.parse(localStorage.getItem('supa_user_map') || '{}');
+    for (var uid in userMap) {
+      if (userMap[uid] === tx.ownerUser) { ownerSupaId = uid; break; }
+    }
+  }
   const row = {
     id: tx.id, type: tx.type, scope: tx.scope || 'shared',
     amount: tx.amount, date: tx.date,
-    user_id: tx.supaUserId || state.supaUserId,
+    user_id: ownerSupaId,
     category_id: tx.catId || null,
     establishment_id: tx.estabId || null,
     notes: tx.notes || '', concepto: tx.concepto || '',
@@ -2354,6 +2363,10 @@ async function buildUserMap() {
   const map = JSON.parse(localStorage.getItem('supa_user_map') || '{}');
   map[state.supaUserId] = state.currentUser;
   localStorage.setItem('supa_user_map', JSON.stringify(map));
+  // También guardar el inverso: nombre → uid
+  const nameMap = JSON.parse(localStorage.getItem('supa_name_map') || '{}');
+  nameMap[state.currentUser] = state.supaUserId;
+  localStorage.setItem('supa_name_map', JSON.stringify(nameMap));
 }
 
 
@@ -2555,6 +2568,8 @@ function openAddSheet() {
   populateCatSelect('tx-cat');
   populateEstabSelect('tx-estab', '');
   acReset();
+  state.txUser = state.currentUser;
+  selectTxUser(state.currentUser, null);
   if(typeof updateUserSectionVisibility==='function') updateUserSectionVisibility();
   document.getElementById('sheet-add').classList.add('open');
 }
@@ -2704,8 +2719,10 @@ function setTxType(type, btn) {
 
 function selectTxUser(user, btn) {
   state.txUser = user;
-  document.getElementById('uc-juan').classList.toggle('active', user === 'juan');
-  document.getElementById('uc-esther').classList.toggle('active', user === 'esther');
+  ['juan','esther','noa'].forEach(function(u) {
+    var el = document.getElementById('uc-' + u);
+    if (el) el.classList.toggle('active', u === user);
+  });
 }
 
 function setDashView(mode, btn) {
@@ -3846,7 +3863,10 @@ function saveTx() {
   const cat = cats.find(c => c.id === catId);
   const estab = estabs.find(e => e.id === estabId);
 
-  const owner = state.txScope === 'shared' ? state.currentUser : state.txUser;
+  // Si hay viaje seleccionado, respetar quién lo pagó (state.txUser)
+  // Si es compartido sin viaje, asignar al usuario activo
+  const viajeIdVal = document.getElementById('tx-viaje-id')?.value || '';
+  const owner = (viajeIdVal || state.txScope === 'personal') ? state.txUser : state.currentUser;
   const tx = {
     id: 'tx_' + Date.now(),
     type: state.txType,
@@ -3854,6 +3874,8 @@ function saveTx() {
     amount: amount,
     date: date,
     user: owner,
+    supaUserId: state.supaUserId, // el que está logado
+    ownerUser: owner, // nombre interno del pagador
     catId: catId || null,
     catName: cat?.name || '',
     catColor: cat?.color || '',
