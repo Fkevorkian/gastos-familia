@@ -1390,15 +1390,25 @@ body.light-mode .login-glow {
   <div class="scroll-content">
     <div class="card">
       <div class="card-title" style="margin-bottom:12px;">Cuenta</div>
-      <div class="settings-item">
-        <span class="settings-label">Usuario</span>
-        <span class="settings-value" id="settings-user-name">Juan Diego</span>
+      <!-- Foto de perfil -->
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--border);">
+        <div style="position:relative;width:64px;height:64px;flex-shrink:0;">
+          <div style="width:64px;height:64px;border-radius:50%;background:var(--bg3);border:2px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;">
+            <span id="profile-avatar-letter" style="font-family:var(--font-serif);font-size:24px;color:var(--accent2);">J</span>
+            <img id="profile-avatar-img" src="" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">
+          </div>
+          <button onclick="document.getElementById('profile-photo-input').click()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:var(--accent);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
+          <input type="file" id="profile-photo-input" accept="image/*" style="display:none;" onchange="handleProfilePhoto(this)">
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:600;" id="settings-user-name">Juan Diego</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;" id="settings-user-email"></div>
+          <button onclick="document.getElementById('profile-photo-input').click()" style="font-size:11px;color:var(--accent2);background:none;border:none;padding:4px 0;cursor:pointer;margin-top:4px;">Cambiar foto</button>
+        </div>
       </div>
-      <div class="settings-item">
-        <span class="settings-label">Email</span>
-        <span class="settings-value" id="settings-user-email" style="font-size:12px;color:var(--text3);"></span>
-      </div>
-      <div class="settings-item" onclick="doLogout()" style="cursor:pointer;">
+      <div class="settings-item" onclick="doLogout()" style="cursor:pointer;margin-top:4px;">
         <span class="settings-label" style="color:var(--red);">Cerrar sesión</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </div>
@@ -2013,11 +2023,89 @@ function updateUserUI() {
   if(typeof refreshAvatars === 'function') refreshAvatars();
 }
 
+// Mapa explícito email → usuario interno
+const EMAIL_USER_MAP = {
+  'juandiego@trustynet.es':        'juan',
+  'estheriglesiasgarcia@gmail.com': 'esther',
+};
+
+
+// ── FOTO DE PERFIL ──
+async function handleProfilePhoto(input) {
+  var file = input.files[0];
+  if (!file) return;
+
+  // Validar tamaño (max 2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    alert('La imagen es demasiado grande. Máximo 2MB.');
+    return;
+  }
+
+  // Leer como base64 para localStorage (fallback rápido)
+  var reader = new FileReader();
+  reader.onload = async function(e) {
+    var base64 = e.target.result;
+    // Guardar en localStorage por usuario
+    localStorage.setItem('avatar_' + state.currentUser, base64);
+    refreshAvatars();
+    updateProfileAvatar(base64);
+
+    // Intentar subir a Supabase Storage
+    try {
+      var supa = getSupa();
+      var fileName = 'avatar_' + state.supaUserId + '.jpg';
+      var blob = dataURLToBlob(base64);
+      var { error } = await supa.storage
+        .from('avatars')
+        .upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (error) {
+        console.warn('Storage error (usando localStorage):', error.message);
+      } else {
+        // Guardar URL pública en profiles
+        var { data: urlData } = supa.storage.from('avatars').getPublicUrl(fileName);
+        if (urlData) {
+          await supa.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', state.supaUserId);
+        }
+      }
+    } catch(e) {
+      console.warn('Error subiendo avatar:', e);
+      // No pasa nada — ya está en localStorage
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function dataURLToBlob(dataURL) {
+  var parts = dataURL.split(',');
+  var mime  = parts[0].match(/:(.*?);/)[1];
+  var bytes = atob(parts[1]);
+  var arr   = new Uint8Array(bytes.length);
+  for (var i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function updateProfileAvatar(src64) {
+  var letter = document.getElementById('profile-avatar-letter');
+  var img    = document.getElementById('profile-avatar-img');
+  if (!src64) {
+    if(letter) letter.style.display = 'block';
+    if(img)    { img.style.display = 'none'; img.src = ''; }
+  } else {
+    if(letter) letter.style.display = 'none';
+    if(img)    { img.src = src64; img.style.display = 'block'; }
+  }
+}
+
+
 function detectUserFromProfile(name, email) {
-  const n = (name + ' ' + email).toLowerCase();
+  var e = (email || '').toLowerCase().trim();
+  if (EMAIL_USER_MAP[e]) return EMAIL_USER_MAP[e];
+  // Fallback por nombre o email
+  var n = (name + ' ' + e).toLowerCase();
   if (n.includes('esther')) return 'esther';
   if (n.includes('noa'))    return 'noa';
-  return 'juan'; // Juan Diego por defecto
+  if (n.includes('juan') || n.includes('trustynet')) return 'juan';
+  return 'juan';
 }
 
 // ── LOGOUT ──
@@ -2897,12 +2985,15 @@ function changePassword() {
 
 function openSettings() {
   showScreen('screen-settings');
-  // Nombre del usuario
   var nameEl = document.getElementById('settings-user-name');
   if(nameEl) nameEl.textContent = uName(state.currentUser);
-  // Email de Supabase
   var emailEl = document.getElementById('settings-user-email');
   if(emailEl && _supaUser) emailEl.textContent = _supaUser.email || '';
+  // Cargar foto de perfil en la pantalla de ajustes
+  var letterEl = document.getElementById('profile-avatar-letter');
+  if(letterEl) letterEl.textContent = uName(state.currentUser)[0];
+  var avatar = localStorage.getItem('avatar_' + state.currentUser);
+  updateProfileAvatar(avatar || '');
   refreshAvatars();
 }
 
