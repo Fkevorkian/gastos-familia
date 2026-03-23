@@ -2364,6 +2364,8 @@ function selectLoginUser(user, btn) {
 }
 
 function doLogin(type) {
+  // Legacy — usar doLoginSupabase() en su lugar
+  if(typeof doLoginSupabase==='function' && (!type || type!=='google')) { doLoginSupabase(); return; }
   state.currentUser = _loginUser;
   showScreen('screen-home');
   initApp();
@@ -2387,9 +2389,7 @@ function switchUser() {
   renderAll();
 }
 
-function showRegister() {
-  alert('Funcionalidad de registro disponible al conectar con Supabase');
-}
+function showRegister() { showRegisterForm(); }
 
 // ═══════════════════════════════════════════ NAVIGATION ═══════════════════
 
