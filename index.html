@@ -1790,7 +1790,14 @@ body.light-mode .login-glow {
   <div class="topbar">
     <button class="topbar-back" onclick="showScreen('screen-cats')">← Categorías</button>
     <div class="topbar-title" id="cat-detail-title">Categoría</div>
-    <div style="width:60px;"></div>
+    <div style="display:flex;gap:4px;">
+      <div class="icon-btn" id="cat-detail-edit-btn" onclick="openCatSheet(window._currentCatId)" title="Editar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </div>
+      <div class="icon-btn" style="color:var(--red)" id="cat-detail-delete-btn" onclick="deleteCatFromDetail(window._currentCatId)" title="Eliminar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/></svg>
+      </div>
+    </div>
   </div>
   <div class="scroll-content">
 
@@ -1829,7 +1836,9 @@ body.light-mode .login-glow {
       </div>
       <div class="tx-list" id="cat-detail-txlist"></div>
     </div>
-  </div>
+  
+  <div class="bottom-nav"></div>
+</div>
 </div>
 
 <!-- SCREEN VIAJES -->
@@ -3082,7 +3091,9 @@ function openCatDetail(id) {
   var cats = getCategories ? getCategories() : JSON.parse(localStorage.getItem('cats')||'[]');
   var cat = cats.find(function(c){ return c.id === id; });
   if (!cat) return;
+  window._currentCatId = id;
   showScreen('screen-cat-detail');
+  if(typeof renderAllNavs==='function') renderAllNavs('cats');
   document.getElementById('cat-detail-title').textContent = cat.name;
 
   var allTxs = getTransactions ? getTransactions() : JSON.parse(localStorage.getItem('txs')||'[]');
