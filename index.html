@@ -4357,7 +4357,7 @@ function saveCat() {
       cats[i].name = name;
       cats[i].color = state.selectedCatColor || '#7c6aff';
       cats[i].description = description;
-      if (imgVal) cats[i].image = imgVal;
+      cats[i].image = imgVal; // actualizar siempre ('' borra la imagen)
       cat = cats[i];
     }
   } else {
