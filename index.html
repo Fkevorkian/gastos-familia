@@ -4369,6 +4369,10 @@ function saveCat() {
   if (cat && typeof saveCategoryToSupa === 'function') saveCategoryToSupa(cat);
   closeSheet('sheet-cat');
   renderCategories();
+  // Si estamos en la ficha de esta categoría, refrescarla
+  if (cat && window._currentCatId === cat.id && typeof openCatDetail === 'function') {
+    openCatDetail(cat.id);
+  }
 }
 function saveCat_OLD_UNUSED() {
   const name = document.getElementById('cat-name').value.trim();
