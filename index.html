@@ -1785,61 +1785,6 @@ body.light-mode .login-glow {
   </div>
 </div>
 
-<!-- SCREEN DETALLE CATEGORÍA -->
-<div id="screen-cat-detail" class="screen">
-  <div class="topbar">
-    <button class="topbar-back" onclick="showScreen('screen-cats')">← Categorías</button>
-    <div class="topbar-title" id="cat-detail-title">Categoría</div>
-    <div style="display:flex;gap:4px;">
-      <div class="icon-btn" id="cat-detail-edit-btn" onclick="openCatSheet(window._currentCatId)" title="Editar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      </div>
-      <div class="icon-btn" style="color:var(--red)" id="cat-detail-delete-btn" onclick="deleteCatFromDetail(window._currentCatId)" title="Eliminar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/></svg>
-      </div>
-    </div>
-  </div>
-  <div class="scroll-content">
-
-    <!-- Tarjeta superior: icono + nombre + establecimientos + este mes -->
-    <div class="card" id="cat-detail-info" style="margin-bottom:16px;"></div>
-
-    <!-- Gasto este mes + % sobre total -->
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;gap:12px;align-items:stretch;">
-        <div style="flex:1;">
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Gasto este mes</div>
-          <div style="font-family:var(--font-serif);font-size:28px;font-weight:600;" id="cat-month-amount">0,00 €</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:4px;" id="cat-month-txcount">0 gastos</div>
-        </div>
-        <div style="width:80px;height:80px;background:var(--bg3);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
-          <div style="font-family:var(--font-serif);font-size:22px;font-weight:700;" id="cat-month-pct">0%</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px;">del total</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Gráfica mes a mes -->
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-header">
-        <div class="card-title">Últimos 6 meses</div>
-        <span id="cat-detail-total" style="font-size:13px;font-weight:600;color:var(--red);"></span>
-      </div>
-      <div class="chart-bars" id="cat-detail-chart" style="height:120px;"></div>
-    </div>
-
-    <!-- Gastos del mes actual uno a uno -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Gastos este mes</div>
-        <span id="cat-detail-count" style="font-size:12px;color:var(--text3);"></span>
-      </div>
-      <div class="tx-list" id="cat-detail-txlist"></div>
-    </div>
-  </div>
-  <div class="bottom-nav"></div>
-</div>
-
 <!-- SCREEN VIAJES -->
 <div id="screen-viajes" class="screen">
   <div class="topbar">
@@ -1959,7 +1904,64 @@ SHEET VIAJE -->
   </div>
 </div>
 
-</div><!-- /#app -->
+</div>
+
+<!-- SCREEN DETALLE CATEGORÍA -->
+<div id="screen-cat-detail" class="screen">
+  <div class="topbar">
+    <button class="topbar-back" onclick="showScreen('screen-cats')">← Categorías</button>
+    <div class="topbar-title" id="cat-detail-title">Categoría</div>
+    <div style="display:flex;gap:4px;">
+      <div class="icon-btn" id="cat-detail-edit-btn" onclick="openCatSheet(window._currentCatId)" title="Editar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </div>
+      <div class="icon-btn" style="color:var(--red)" id="cat-detail-delete-btn" onclick="deleteCatFromDetail(window._currentCatId)" title="Eliminar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-content">
+
+    <!-- Tarjeta superior: icono + nombre + establecimientos + este mes -->
+    <div class="card" id="cat-detail-info" style="margin-bottom:16px;"></div>
+
+    <!-- Gasto este mes + % sobre total -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;gap:12px;align-items:stretch;">
+        <div style="flex:1;">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Gasto este mes</div>
+          <div style="font-family:var(--font-serif);font-size:28px;font-weight:600;" id="cat-month-amount">0,00 €</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px;" id="cat-month-txcount">0 gastos</div>
+        </div>
+        <div style="width:80px;height:80px;background:var(--bg3);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+          <div style="font-family:var(--font-serif);font-size:22px;font-weight:700;" id="cat-month-pct">0%</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">del total</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfica mes a mes -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        <div class="card-title">Últimos 6 meses</div>
+        <span id="cat-detail-total" style="font-size:13px;font-weight:600;color:var(--red);"></span>
+      </div>
+      <div class="chart-bars" id="cat-detail-chart" style="height:120px;"></div>
+    </div>
+
+    <!-- Gastos del mes actual uno a uno -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Gastos este mes</div>
+        <span id="cat-detail-count" style="font-size:12px;color:var(--text3);"></span>
+      </div>
+      <div class="tx-list" id="cat-detail-txlist"></div>
+    </div>
+  </div>
+  <div class="bottom-nav"></div>
+</div>
+
+<!-- /#app -->
 
 <script>
 // ═══════════════════════════════════════ DATA ═══════════════════
