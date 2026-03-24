@@ -2717,7 +2717,7 @@ function deleteCatFromDetail(id) {
   if (!confirm('¿Eliminar esta categoría? Los gastos asignados pasarán a Imprevistos.')) return;
   var cats = typeof getCategories === 'function' ? getCategories() : JSON.parse(localStorage.getItem('cats')||'[]');
   cats = cats.filter(function(c){ return c.id !== id; });
-  if (typeof saveCats === 'function') saveCats(cats);
+  if (typeof saveCategories === 'function') saveCategories(cats);
   else localStorage.setItem('cats', JSON.stringify(cats));
   // Reasignar gastos de esta cat a imprevistos
   var txs = JSON.parse(localStorage.getItem('txs')||'[]');
@@ -4289,7 +4289,7 @@ function openCatSheet(id) {
   clearCatImg();
 
   if (id) {
-    var cats = getCats ? getCats() : JSON.parse(localStorage.getItem('cats')||'[]');
+    var cats = getCategories ? getCategories() : JSON.parse(localStorage.getItem('cats')||'[]');
     var cat = cats.find(function(c){ return c.id === id; });
     if (cat) {
       document.getElementById('cat-name').value = cat.name || '';
@@ -4349,7 +4349,7 @@ function saveCat() {
   var description = descEl ? descEl.value.trim() : '';
   var imgVal = localStorage.getItem('cat_img_tmp') || '';
   localStorage.removeItem('cat_img_tmp');
-  var cats = getCats ? getCats() : JSON.parse(localStorage.getItem('cats')||'[]');
+  var cats = getCategories ? getCategories() : JSON.parse(localStorage.getItem('cats')||'[]');
   var cat;
   if (editId) {
     var i = cats.findIndex(function(c){ return c.id === editId; });
