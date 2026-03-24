@@ -1346,13 +1346,18 @@ body.light-mode .login-glow {
     <div id="budgets-list"></div>
 
     <!-- Enlace a suscripciones -->
-    <div class="card" style="cursor:pointer;" onclick="switchNav('subs')">
+    <div class="card" style="cursor:pointer;border-color:rgba(124,106,255,.25);background:rgba(124,106,255,.04);" onclick="switchNav('subs')">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-size:14px;font-weight:600;margin-bottom:2px;">Suscripciones recurrentes</div>
-          <div style="font-size:12px;color:var(--text3);" id="subs-link-meta">Ver todas las suscripciones</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;background:rgba(124,106,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:2px;">Suscripciones</div>
+            <div style="font-size:12px;color:var(--text3);" id="subs-link-meta">Ver todas las suscripciones</div>
+          </div>
         </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     </div>
   </div>
@@ -1651,7 +1656,7 @@ body.light-mode .login-glow {
 <!-- SCREEN SUSCRIPCIONES -->
 <div id="screen-subs" class="screen">
   <div class="topbar">
-    <button class="topbar-back" onclick="switchNav('budgets')">← Atrás</button>
+    <button class="topbar-back" onclick="switchNav('budgets')">← Presupuesto</button>
     <div class="topbar-title">Suscripciones</div>
     <button class="btn btn-sm btn-outline" onclick="openSubSheet()">+ Nueva</button>
   </div>
@@ -2007,6 +2012,7 @@ async function onLoginSuccess(session) {
   // Actualizar UI con el usuario actual
   await buildUserMap();
   await loadAllDataFromSupabase();
+  if(typeof renderAllNavs === 'function') renderAllNavs('home');
   showScreen('screen-home');
   renderDashboard();
   var al = document.getElementById('home-avatar-letter');
@@ -2543,8 +2549,40 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
+
+// ════════════════════════════════════════════════════════
+// NAV DINÁMICO — se regenera al cambiar de pantalla
+// ════════════════════════════════════════════════════════
+
+const NAV_ITEMS = [
+  { id:'home',    label:'Inicio',     icon:'<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>' },
+  { id:'cats',    label:'Categ.',     icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>' },
+  { id:'estab',   label:'Establec.',  icon:'<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="14" r="2"/>' },
+  { id:'stats',   label:'Estadíst.',  icon:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>' },
+  { id:'budgets', label:'Presupuesto',icon:'<path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 6v6l4 2"/>' },
+  { id:'viajes',  label:'Viajes',     icon:'<path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19 2c-2-2-4-2-5.5-.5L10 5 1.8 6.2l2.4 2.4L2 11l4 4 2.4-4 4.4-4.4 1.6 9.2z"/><line x1="2" y1="22" x2="9" y2="15"/>' },
+  { id:'subs',    label:'Suscripc.',  icon:'<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>' },
+];
+
+function renderAllNavs(activeTab) {
+  var navHtml = NAV_ITEMS.map(function(item) {
+    var isActive = item.id === activeTab;
+    return '<div class="nav-item' + (isActive ? ' active' : '') + '" onclick="switchNav(\'' + item.id + '\')" id="nav-all-' + item.id + '">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">' + item.icon + '</svg>'
+      + item.label
+      + '</div>';
+  }).join('');
+  
+  // Actualizar todos los navs en la página
+  document.querySelectorAll('.bottom-nav').forEach(function(el) {
+    el.innerHTML = navHtml;
+  });
+}
+
 function switchNav(tab) {
-  const screens = { home:'screen-home', cats:'screen-cats', estab:'screen-estab', stats:'screen-stats', budgets:'screen-budgets', subs:'screen-subs', viajes:'screen-viajes' };
+  const screens = { home:'screen-home', cats:'screen-cats', estab:'screen-estab', stats:'screen-stats', budgets:'screen-budgets', subs:'screen-subs', viajes:'screen-viajes' }; // subs accesible desde presupuesto
+  var navTab = tab === 'subs' ? 'budgets' : tab; // subs pertenece a presupuesto
+  renderAllNavs(navTab);
   showScreen(screens[tab]);
   if (tab === 'home') { renderDashboard(); }
   if (tab === 'cats') { renderCategories(); }
@@ -2564,6 +2602,8 @@ function openAddSheet() {
   if (document.getElementById('tx-notes')) document.getElementById('tx-notes').value = '';
   if (document.getElementById('tx-concepto')) document.getElementById('tx-concepto').value = '';
   var bazarCb = document.getElementById('tx-bazar'); if(bazarCb) bazarCb.checked = false;
+  state.ticketPhoto = null;
+  var prevEl = document.getElementById('tx-photo-preview'); if(prevEl) prevEl.innerHTML = '';
   if(typeof populateViajeSelect==='function') populateViajeSelect('tx-viaje-id');
   var incF = document.getElementById('tx-income-fields'); if(incF) incF.style.display = 'none';
   document.getElementById('tx-photo-preview').innerHTML = '';
@@ -2789,17 +2829,47 @@ function selectUser(user, btn) {
 
 
 function handlePhoto(input) {
-  const file = input.files[0];
+  var file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('tx-photo-preview').innerHTML =
-      `<img src="${e.target.result}" style="width:100%;border-radius:8px;margin-top:8px;max-height:160px;object-fit:cover;">`;
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    // Comprimir ticket a max 800x800px para evitar llenar localStorage
+    var img = new Image();
+    img.onload = function() {
+      var MAX = 800;
+      var ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+      var canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      var compressed = canvas.toDataURL('image/jpeg', 0.75);
+
+      // Mostrar preview
+      var preview = document.getElementById('tx-photo-preview');
+      if (preview) {
+        preview.innerHTML = '<div style="position:relative;margin-top:10px;">'
+          + '<img src="' + compressed + '" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover;">'
+          + '<button onclick="clearTicketPhoto()" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);border:none;border-radius:50%;width:24px;height:24px;color:white;cursor:pointer;font-size:14px;">×</button>'
+          + '</div>';
+      }
+
+      // Guardar en state para incluirlo en saveTx
+      state.ticketPhoto = compressed;
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-// ── Creación rápida cat/estab desde formulario de gasto ──
+function clearTicketPhoto() {
+  state.ticketPhoto = null;
+  var preview = document.getElementById('tx-photo-preview');
+  if (preview) preview.innerHTML = '';
+  var input = document.getElementById('tx-photo-input');
+  if (input) input.value = '';
+}
+
 function onTxCatChange(val) {
   const wrap = document.getElementById('tx-cat-new-wrap');
   if(wrap) wrap.style.display = val === '__new__' ? 'block' : 'none';
@@ -3836,6 +3906,7 @@ function updateTx(txId) {
     notes: document.getElementById('tx-notes')?.value || '',
     concepto: document.getElementById('tx-concepto')?.value || '',
     bazar: document.getElementById('tx-bazar')?.checked || false,
+    ticketPhoto: state.ticketPhoto || '',
     viajeId: document.getElementById('tx-viaje-id')?.value || '',
   });
 
