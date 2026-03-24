@@ -4326,24 +4326,16 @@ function renderCategories() {
   const cats = getCategories();
   grid.innerHTML = cats.map(cat => `
     <div class="cat-item" data-catid="${cat.id}" style="position:relative;">
-      <div class="cat-edit-btn" data-editid="${cat.id}" style="position:absolute;top:4px;right:4px;width:22px;height:22px;background:var(--bg4);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;" title="Editar"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
       <div class="cat-icon" style="background:${cat.color}22; color:${cat.color};">
-        ${CAT_ICONS[cat.icon] || CAT_ICONS.imprevistos}
+        ${cat.image ? '<img src="'+cat.image+'" style="width:100%;height:100%;object-fit:contain;border-radius:8px;">' : (CAT_ICONS[cat.icon] || CAT_ICONS.imprevistos)}
       </div>
       <div class="cat-name">${cat.name}</div>
     </div>
   `).join('');
   grid.querySelectorAll("[data-catid]").forEach(function(el) {
-    el.addEventListener("click", function(e) {
-      if (e.target.closest(".cat-edit-btn")) return; // no abrir detalle al editar
+    el.addEventListener("click", function() {
       var cid = el.dataset.catid;
       if (cid === "cat_vacaciones") { switchNav("viajes"); } else { openCatDetail(cid); }
-    });
-  });
-  grid.querySelectorAll(".cat-edit-btn").forEach(function(btn) {
-    btn.addEventListener("click", function(e) {
-      e.stopPropagation();
-      openCatSheet(btn.dataset.editid);
     });
   });
 }
