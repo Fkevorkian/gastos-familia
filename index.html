@@ -2258,7 +2258,7 @@ function supaUserIdToName(uid) {
 // ── CATEGORÍAS ──
 async function loadCategoriesFromSupa() {
   const { data, error } = await getSupa().from('categories').select('*').order('created_at');
-  if (error || !data || !data.length) return;
+  if (error || !data || !data.length) return; // No sobreescribir localStorage si Supabase vacío
   const cats = data.map(r => ({
     id: r.id, name: r.name, color: r.color || '#7c6aff', icon: r.icon || 'imprevistos'
   }));
@@ -2305,7 +2305,7 @@ async function loadTransactionsFromSupa() {
     .from('transactions')
     .select('*, categories(id,name,color,icon), establishments(id,name)')
     .order('date', { ascending: false });
-  if (error || !data) return;
+  if (error || !data || !data.length) return; // No sobreescribir si Supabase devuelve vacío
   const txs = data.map(r => ({
     id: r.id, type: r.type, scope: r.scope || 'shared',
     amount: parseFloat(r.amount), date: r.date,
@@ -4136,6 +4136,12 @@ function saveTx() {
   const txs = getTransactions();
   txs.unshift(tx);
   saveTransactions(txs);
+
+  // Guardar en Supabase si hay sesión activa
+  if (typeof saveTxToSupa === 'function' && state.supaUserId) {
+    saveTxToSupa(tx).catch(function(e){ console.warn('Error Supabase tx:', e); });
+  }
+
   closeSheet('sheet-add');
   renderAll();
   checkBudgetAlerts();
@@ -4176,13 +4182,19 @@ function renderCategories() {
   const grid = document.getElementById('cat-grid');
   const cats = getCategories();
   grid.innerHTML = cats.map(cat => `
-    <div class="cat-item" onclick="cat.id==='cat_vacaciones'?switchNav('viajes'):openCatDetail('${cat.id}')" style="position:relative;">
+    <div class="cat-item" data-catid="${cat.id}" style="position:relative;">
       <div class="cat-icon" style="background:${cat.color}22; color:${cat.color};">
         ${CAT_ICONS[cat.icon] || CAT_ICONS.imprevistos}
       </div>
       <div class="cat-name">${cat.name}</div>
     </div>
   `).join('');
+  grid.querySelectorAll("[data-catid]").forEach(function(el) {
+    el.addEventListener("click", function() {
+      var cid = el.dataset.catid;
+      if (cid === "cat_vacaciones") { switchNav("viajes"); } else { openCatDetail(cid); }
+    });
+  });
 }
 
 // ═══════════════════════════════════════════ ESTABLISHMENTS ═══════════════════
