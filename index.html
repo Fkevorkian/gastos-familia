@@ -1710,6 +1710,19 @@ body.light-mode .login-glow {
       <input type="number" id="sub-amount" placeholder="9,99" step="0.01" min="0">
     </div>
     <div class="form-section">
+      <label class="form-label">Logo (opcional)</label>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div id="sub-icon-preview" style="width:52px;height:52px;border-radius:10px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </div>
+        <div style="flex:1;">
+          <button class="btn btn-sm btn-outline" onclick="document.getElementById('sub-icon-input').click()" style="width:100%;margin-bottom:6px;">Subir imagen</button>
+          <button class="btn btn-sm btn-ghost" id="sub-icon-clear-btn" onclick="clearSubIcon()" style="width:100%;display:none;">Quitar imagen</button>
+        </div>
+      </div>
+      <input type="file" id="sub-icon-input" accept="image/*" style="display:none;" onchange="handleSubIcon(this)">
+    </div>
+    <div class="form-section">
       <label class="form-label">Día del mes en que se cobra</label>
       <input type="number" id="sub-day" placeholder="1-31" min="1" max="31">
     </div>
@@ -2415,8 +2428,8 @@ const DEFAULT_CATS = [
   {id:'cat_ocio',         name:'Ocio',                 color:'#f472b6', icon:'ocio'},
   {id:'cat_transporte',   name:'Transporte',           color:'#38bdf8', icon:'transporte'},
   {id:'cat_farmacia',     name:'Farmacia',             color:'#34d399', icon:'farmacia'},
-  {id:'cat_suscripciones',name:'Suscripciones',        color:'#7c6aff', icon:'suscripciones'},
   {id:'cat_vacaciones',   name:'Vacaciones',           color:'#2dd4bf', icon:'vacaciones'},
+  {id:'cat_multi',        name:'Multitienda',          color:'#64748b', icon:'imprevistos'},
   {id:'cat_imprevistos',  name:'Imprevistos',          color:'#f97316', icon:'imprevistos'},
   {id:'cat_regalos',      name:'Regalos',              color:'#ec4899', icon:'regalos'},
   {id:'cat_mascotas',     name:'Mascotas',             color:'#84cc16', icon:'mascotas'},
@@ -2664,6 +2677,12 @@ function openEstabSheet(id) {
   document.getElementById('estab-notes').value = '';
   if (document.getElementById('estab-url')) document.getElementById('estab-url').value = '';
   document.getElementById('estab-edit-id').value = id || '';
+  // Limpiar siempre la imagen al abrir el sheet
+  localStorage.removeItem('estab_icon_tmp');
+  var prevEl = document.getElementById('estab-icon-preview');
+  var clearBtn = document.getElementById('estab-icon-clear-btn');
+  if (prevEl) prevEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+  if (clearBtn) clearBtn.style.display = 'none';
   document.getElementById('estab-sheet-title').textContent = id ? 'Editar establecimiento' : 'Nuevo establecimiento';
   populateCatSelect('estab-cat');
   if (id) {
@@ -2722,6 +2741,24 @@ function openSubSheet(id) {
       state.subUser = s.user;
       updateSubPayerBtns();
     }
+  }
+  // Cargar icono de la suscripción al editar
+  var subPrev = document.getElementById('sub-icon-preview');
+  var subClrBtn = document.getElementById('sub-icon-clear-btn');
+  localStorage.removeItem('sub_icon_tmp');
+  if (id) {
+    var subEdit = getSubscriptions ? getSubscriptions().find(function(s){ return s.id===id; }) : null;
+    if (subEdit && subEdit.icon) {
+      if(subPrev) subPrev.innerHTML = '<img src="'+subEdit.icon+'" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
+      if(subClrBtn) subClrBtn.style.display='block';
+      localStorage.setItem('sub_icon_tmp', subEdit.icon);
+    } else {
+      if(subPrev) subPrev.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+      if(subClrBtn) subClrBtn.style.display='none';
+    }
+  } else {
+    if(subPrev) subPrev.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+    if(subClrBtn) subClrBtn.style.display='none';
   }
   document.getElementById('sheet-sub').classList.add('open');
 }
@@ -4083,7 +4120,7 @@ function renderCategories() {
   const grid = document.getElementById('cat-grid');
   const cats = getCategories();
   grid.innerHTML = cats.map(cat => `
-    <div class="cat-item" onclick="openCatDetail('${cat.id}')" style="position:relative;">
+    <div class="cat-item" onclick="cat.id==='cat_vacaciones'?switchNav('viajes'):openCatDetail('${cat.id}')" style="position:relative;">
       <div class="cat-icon" style="background:${cat.color}22; color:${cat.color};">
         ${CAT_ICONS[cat.icon] || CAT_ICONS.imprevistos}
       </div>
@@ -4144,7 +4181,8 @@ function renderEstablishments() {
   filterDiv.innerHTML = `<button class="filter-chip ${!state.estabCatFilter ? 'active' : ''}" onclick="filterEstabCat('',this)">Todos</button>` +
     cats.map(c => `<button class="filter-chip ${state.estabCatFilter === c.id ? 'active' : ''}" onclick="filterEstabCat('${c.id}',this)">${c.name}</button>`).join('');
 
-  const filtered = state.estabCatFilter ? estabs.filter(e => e.catId === state.estabCatFilter) : estabs;
+  const filtered = (state.estabCatFilter ? estabs.filter(e => e.catId === state.estabCatFilter) : estabs)
+    .slice().sort(function(a,b){ return a.name.localeCompare(b.name, 'es'); });
   const list = document.getElementById('estab-list');
 
   if (!filtered.length) {
@@ -4342,8 +4380,9 @@ function renderSubscriptions() {
     var payerLabel = isShared ? 'Compartida ⇄' : uName(s.user);
     var payerColor = isShared ? 'var(--blue)' : 'var(--text2)';
     var payerBg    = isShared ? 'rgba(96,165,250,.12)' : 'var(--bg4)';
+    var subLogoHtml = s.icon ? '<img src="'+s.icon+'" style="width:100%;height:100%;object-fit:contain;border-radius:8px;">' : s.name.substring(0,3).toUpperCase();
     return '<div class="sub-item" data-id="' + s.id + '">'
-      + '<div class="sub-logo">' + s.name.substring(0,3).toUpperCase() + '</div>'
+      + '<div class="sub-logo" style="overflow:hidden;padding:' + (s.icon?'0':'') + ';">' + subLogoHtml + '</div>'
       + '<div class="sub-info">'
         + '<div class="sub-name">' + s.name + '</div>'
         + '<div class="sub-meta">Día ' + s.day
@@ -4392,6 +4431,41 @@ function updateSubPayerBtns() {
   });
 }
 
+
+function handleSubIcon(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      var MAX = 120;
+      var ratio = Math.min(MAX/img.width, MAX/img.height, 1);
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width*ratio);
+      canvas.height = Math.round(img.height*ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      var b64 = canvas.toDataURL('image/png', 0.9);
+      localStorage.setItem('sub_icon_tmp', b64);
+      var prev = document.getElementById('sub-icon-preview');
+      if (prev) prev.innerHTML = '<img src="'+b64+'" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
+      var clr = document.getElementById('sub-icon-clear-btn');
+      if (clr) clr.style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearSubIcon() {
+  localStorage.removeItem('sub_icon_tmp');
+  var prev = document.getElementById('sub-icon-preview');
+  if (prev) prev.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+  var clr = document.getElementById('sub-icon-clear-btn');
+  if (clr) clr.style.display = 'none';
+  var inp = document.getElementById('sub-icon-input');
+  if (inp) inp.value = '';
+}
 function saveSub() {
   const name = document.getElementById('sub-name').value.trim();
   const amount = parseFloat(document.getElementById('sub-amount').value);
@@ -4400,11 +4474,15 @@ function saveSub() {
   const editId = document.getElementById('sub-edit-id').value;
   const subs = getSubscriptions();
   const isShared = state.subUser === 'shared';
+  const subIconVal = localStorage.getItem('sub_icon_tmp') || '';
+  localStorage.removeItem('sub_icon_tmp');
+  const existingSubIcon = editId ? (getSubscriptions().find(s=>s.id===editId)?.icon||'') : '';
   const data = {
     id: editId || 'sub_' + Date.now(),
     name, amount, day,
     user: isShared ? 'shared' : state.subUser,
     scope: isShared ? 'shared' : 'personal',
+    icon: subIconVal || existingSubIcon,
   };
   if (editId) {
     const idx = subs.findIndex(s => s.id === editId);
@@ -4844,6 +4922,23 @@ function migrateData() {
     }
   });
   if (subMigChanged) localStorage.setItem('subs', JSON.stringify(subsRaw));
+
+  // Eliminar categoría suscripciones si existe
+  var catsCheck = JSON.parse(localStorage.getItem('cats') || '[]');
+  var hadSubs = catsCheck.some(function(c){ return c.id === 'cat_suscripciones'; });
+  if (hadSubs) {
+    catsCheck = catsCheck.filter(function(c){ return c.id !== 'cat_suscripciones'; });
+    localStorage.setItem('cats', JSON.stringify(catsCheck));
+    // Reasignar txs de suscripciones a imprevistos
+    var txsCheck = JSON.parse(localStorage.getItem('txs') || '[]');
+    var imprev = catsCheck.find(function(c){ return c.id === 'cat_imprevistos'; }) || {id:'cat_imprevistos',name:'Imprevistos',color:'#f97316',icon:'imprevistos'};
+    txsCheck.forEach(function(t){
+      if (t.catId === 'cat_suscripciones') {
+        t.catId = imprev.id; t.catName = imprev.name; t.catColor = imprev.color; t.catIcon = imprev.icon;
+      }
+    });
+    localStorage.setItem('txs', JSON.stringify(txsCheck));
+  }
 }
 
 function initApp() {
