@@ -1777,18 +1777,45 @@ body.light-mode .login-glow {
 <!-- SCREEN DETALLE CATEGORÍA -->
 <div id="screen-cat-detail" class="screen">
   <div class="topbar">
-    <button class="topbar-back" onclick="showScreen('screen-cats')">← Atrás</button>
+    <button class="topbar-back" onclick="showScreen('screen-cats')">← Categorías</button>
     <div class="topbar-title" id="cat-detail-title">Categoría</div>
     <div style="width:60px;"></div>
   </div>
   <div class="scroll-content">
+
+    <!-- Tarjeta superior: icono + nombre + establecimientos + este mes -->
     <div class="card" id="cat-detail-info" style="margin-bottom:16px;"></div>
+
+    <!-- Gasto este mes + % sobre total -->
     <div class="card" style="margin-bottom:16px;">
-      <div class="card-header"><div class="card-title">Gasto mes a mes</div><span id="cat-detail-total" style="font-size:13px;font-weight:600;color:var(--red);"></span></div>
+      <div style="display:flex;gap:12px;align-items:stretch;">
+        <div style="flex:1;">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Gasto este mes</div>
+          <div style="font-family:var(--font-serif);font-size:28px;font-weight:600;" id="cat-month-amount">0,00 €</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px;" id="cat-month-txcount">0 gastos</div>
+        </div>
+        <div style="width:80px;height:80px;background:var(--bg3);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+          <div style="font-family:var(--font-serif);font-size:22px;font-weight:700;" id="cat-month-pct">0%</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">del total</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfica mes a mes -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        <div class="card-title">Últimos 6 meses</div>
+        <span id="cat-detail-total" style="font-size:13px;font-weight:600;color:var(--red);"></span>
+      </div>
       <div class="chart-bars" id="cat-detail-chart" style="height:120px;"></div>
     </div>
+
+    <!-- Gastos del mes actual uno a uno -->
     <div class="card">
-      <div class="card-header"><div class="card-title">Todos los tickets</div><span id="cat-detail-count" style="font-size:12px;color:var(--text3);"></span></div>
+      <div class="card-header">
+        <div class="card-title">Gastos este mes</div>
+        <span id="cat-detail-count" style="font-size:12px;color:var(--text3);"></span>
+      </div>
       <div class="tx-list" id="cat-detail-txlist"></div>
     </div>
   </div>
@@ -3048,26 +3075,49 @@ function openCatDetail(id) {
   document.getElementById('cat-detail-title').textContent = cat.name;
 
   var allTxs = getTransactions ? getTransactions() : JSON.parse(localStorage.getItem('txs')||'[]');
-  var txs = allTxs.filter(function(t){ return t.catId === id && t.type === 'expense'; });
-  var total = txs.reduce(function(s,t){ return s + t.amount; }, 0);
+  var catTxs = allTxs.filter(function(t){ return t.catId === id && t.type === 'expense'; });
+  var totalAll = catTxs.reduce(function(s,t){ return s + t.amount; }, 0);
 
+  // Gastos este mes
   var now = new Date();
-  var thisMonthTxs = txs.filter(function(t){
+  var thisMonth = now.getMonth();
+  var thisYear  = now.getFullYear();
+  var monthTxs = catTxs.filter(function(t){
     var d = new Date(t.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
   });
-  var thisMonthTotal = thisMonthTxs.reduce(function(s,t){ return s + t.amount; }, 0);
+  var monthTotal = monthTxs.reduce(function(s,t){ return s + t.amount; }, 0);
 
-  var estabs = (getEstablishments ? getEstablishments() : []).filter(function(e){ return e.catId === id; });
+  // % sobre total mensual de todos los gastos
+  var allMonthExpenses = allTxs.filter(function(t){
+    var d = new Date(t.date);
+    return t.type === 'expense' && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  }).reduce(function(s,t){ return s + t.amount; }, 0);
+  var pct = allMonthExpenses > 0 ? Math.round((monthTotal / allMonthExpenses) * 100) : 0;
 
-  document.getElementById('cat-detail-count').textContent = txs.length + ' tickets';
-  document.getElementById('cat-detail-total').textContent = fmt(total) + ' total';
+  // Establecimientos de esta categoría ordenados alfabéticamente
+  var estabs = (getEstablishments ? getEstablishments() : [])
+    .filter(function(e){ return e.catId === id; })
+    .sort(function(a,b){ return a.name.localeCompare(b.name, 'es'); });
 
+  // Actualizar totales en cabecera de gráfica
+  document.getElementById('cat-detail-total').textContent = fmt(totalAll) + ' total';
+  document.getElementById('cat-detail-count').textContent = monthTxs.length + ' gastos';
+
+  // Gasto este mes + %
+  var amtEl = document.getElementById('cat-month-amount');
+  var pctEl = document.getElementById('cat-month-pct');
+  var cntEl = document.getElementById('cat-month-txcount');
+  if (amtEl) amtEl.textContent = fmt(monthTotal);
+  if (amtEl) amtEl.style.color = cat.color;
+  if (pctEl) { pctEl.textContent = pct + '%'; pctEl.style.color = cat.color; }
+  if (cntEl) cntEl.textContent = monthTxs.length + ' gasto' + (monthTxs.length !== 1 ? 's' : '');
+
+  // ── Tarjeta superior ──
   var infoEl = document.getElementById('cat-detail-info');
-
   var estabListHtml = '';
   if (estabs.length) {
-    estabListHtml = '<div id="cat-estabs-drop" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">'
+    estabListHtml = '<div id="cat-estabs-drop" style="display:none;margin-top:0;border-top:1px solid var(--border);padding-top:8px;">'
       + estabs.map(function(e) {
           return '<div class="cat-estab-item" data-estab-id="' + e.id + '" style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;border-bottom:1px solid var(--border);">'
             + '<div style="width:28px;height:28px;background:' + cat.color + '22;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:' + cat.color + ';flex-shrink:0;overflow:hidden;">'
@@ -3081,29 +3131,35 @@ function openCatDetail(id) {
   }
 
   infoEl.innerHTML =
-    '<div style="display:flex;align-items:center;gap:14px;">'
+    // Icono + nombre
+    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">'
       + '<div style="width:56px;height:56px;background:' + cat.color + '22;border-radius:14px;display:flex;align-items:center;justify-content:center;color:' + cat.color + ';flex-shrink:0;">'
         + (CAT_ICONS[cat.icon] || CAT_ICONS.imprevistos)
       + '</div>'
-      + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-size:19px;font-weight:600;margin-bottom:6px;">' + cat.name + '</div>'
-        + '<div onclick="toggleCatEstabs()" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:4px;">'
-          + '<span style="font-size:13px;color:var(--text2);"><strong>' + estabs.length + '</strong> establecimiento' + (estabs.length !== 1 ? 's' : '') + '</span>'
-          + (estabs.length ? '<svg id="cat-estabs-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.5" style="transition:transform .2s;"><polyline points="6 9 12 15 18 9"/></svg>' : '')
-        + '</div>'
-        + '<div style="font-size:12px;color:var(--text3);">Este mes: <strong style="color:' + cat.color + ';">' + fmt(thisMonthTotal) + '</strong></div>'
-      + '</div>'
+      + '<div><div style="font-size:20px;font-weight:600;">' + cat.name + '</div></div>'
     + '</div>'
-    + estabListHtml;
+    // Botón establecimientos desplegable
+    + (estabs.length ? '<div onclick="toggleCatEstabs()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border);cursor:pointer;">'
+        + '<div style="display:flex;align-items:center;gap:8px;">'
+          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="14" r="2"/></svg>'
+          + '<span style="font-size:13px;color:var(--text2);"><strong style="color:var(--text);">' + estabs.length + '</strong> establecimiento' + (estabs.length !== 1 ? 's' : '') + '</span>'
+        + '</div>'
+        + '<svg id="cat-estabs-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.5" style="transition:transform .2s;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>'
+      + '</div>' + estabListHtml
+      : '<div style="padding:8px 0;border-top:1px solid var(--border);font-size:13px;color:var(--text3);">Sin establecimientos asignados</div>');
 
-  // Listeners en establecimientos
+  // Listeners en items de establecimientos
   infoEl.querySelectorAll('.cat-estab-item').forEach(function(el) {
     el.addEventListener('click', function(){ openEstabDetail(el.dataset.estabId); });
   });
 
-  renderMiniChart('cat-detail-chart', txs);
+  // Gráfica mes a mes (últimos 6 meses)
+  renderMiniChart('cat-detail-chart', catTxs);
+
+  // Lista gastos del MES ACTUAL
   var listEl = document.getElementById('cat-detail-txlist');
-  if (typeof renderTxList === 'function') renderTxList(listEl, txs, {clickEstab: true});
+  var sortedMonth = monthTxs.slice().sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
+  if (typeof renderTxList === 'function') renderTxList(listEl, sortedMonth, {clickEstab: true});
 }
 
 function toggleCatEstabs() {
