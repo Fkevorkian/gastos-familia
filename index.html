@@ -2489,13 +2489,13 @@ async function loadSubsFromSupa() {
   const subs = data.map(r => ({
     id: r.id, name: r.name, amount: parseFloat(r.amount),
     day: r.day_of_month, user: r.payer, scope: r.scope || 'shared',
-    icon: (localSubMap[r.id] && localSubMap[r.id].icon) ? localSubMap[r.id].icon : ''
+    icon: r.icon || (localSubMap[r.id] ? localSubMap[r.id].icon : '') || ''
   }));
   localStorage.setItem('subs', JSON.stringify(subs));
 }
 
 async function saveSubToSupa(s) {
-  const row = { id: s.id, name: s.name, amount: s.amount, day_of_month: s.day, payer: s.user, scope: s.scope || 'shared', created_by: state.supaUserId };
+  const row = { id: s.id, name: s.name, amount: s.amount, day_of_month: s.day, payer: s.user, scope: s.scope || 'shared', icon: s.icon || '', created_by: state.supaUserId };
   const { error } = await getSupa().from('subscriptions').upsert(row);
   if (error) console.warn('Error guardando suscripción:', error);
 }
@@ -4694,28 +4694,53 @@ async function syncAllToSupabase() {
   var errors = [];
   var counts = { cats: 0, estabs: 0, txs: 0, subs: 0, trips: 0 };
 
-  // Categorías
+  // Categorías (con imágenes a Storage)
   try {
     var cats = JSON.parse(localStorage.getItem('cats') || '[]');
     for (var i = 0; i < cats.length; i++) {
       var cat = cats[i];
-      var row = { id: cat.id, name: cat.name, color: cat.color || '#7c6aff', icon: cat.icon || 'imprevistos', created_by: state.supaUserId };
+      var imageUrl = '';
+      // Subir imagen a Storage si es base64
+      if (cat.image && cat.image.startsWith('data:')) {
+        var url = await uploadImageToStorage('cat-images', cat.id, cat.image);
+        if (url) {
+          imageUrl = url;
+          // Actualizar localStorage con la URL
+          cats[i].image = url;
+        }
+      } else if (cat.image && cat.image.startsWith('http')) {
+        imageUrl = cat.image;
+      }
+      var row = { id: cat.id, name: cat.name, color: cat.color || '#7c6aff', icon: cat.icon || 'imprevistos', description: cat.description || '', image_url: imageUrl, created_by: state.supaUserId };
       var r = await getSupa().from('categories').upsert(row);
       if (r.error) errors.push('cat ' + cat.name + ': ' + r.error.message);
       else counts.cats++;
     }
+    // Guardar localStorage actualizado con URLs
+    localStorage.setItem('cats', JSON.stringify(cats));
   } catch(e) { errors.push('cats: ' + e.message); }
 
-  // Establecimientos
+  // Establecimientos (con iconos a Storage)
   try {
     var estabs = JSON.parse(localStorage.getItem('estabs') || '[]');
     for (var i = 0; i < estabs.length; i++) {
       var e = estabs[i];
-      var row = { id: e.id, name: e.name, category_id: e.catId || null, city: e.city || '', url: e.url || '', notes: e.notes || '', created_by: state.supaUserId };
+      var iconUrl = '';
+      if (e.icon && e.icon.startsWith('data:')) {
+        var url = await uploadImageToStorage('estab-icons', e.id, e.icon);
+        if (url) {
+          iconUrl = url;
+          estabs[i].icon = url;
+        }
+      } else if (e.icon && e.icon.startsWith('http')) {
+        iconUrl = e.icon;
+      }
+      var row = { id: e.id, name: e.name, category_id: e.catId || null, city: e.city || '', url: e.url || '', notes: e.notes || '', icon: iconUrl, created_by: state.supaUserId };
       var r = await getSupa().from('establishments').upsert(row);
       if (r.error) errors.push('estab ' + e.name + ': ' + r.error.message);
       else counts.estabs++;
     }
+    localStorage.setItem('estabs', JSON.stringify(estabs));
   } catch(e) { errors.push('estabs: ' + e.message); }
 
   // Transacciones
@@ -4742,16 +4767,24 @@ async function syncAllToSupabase() {
     }
   } catch(e) { errors.push('txs: ' + e.message); }
 
-  // Suscripciones
+  // Suscripciones (con iconos a Storage)
   try {
     var subs = JSON.parse(localStorage.getItem('subs') || '[]');
     for (var i = 0; i < subs.length; i++) {
       var s = subs[i];
-      var row = { id: s.id, name: s.name, amount: s.amount, day_of_month: s.day, payer: s.user, scope: s.scope || 'shared', created_by: state.supaUserId };
+      var iconUrl = '';
+      if (s.icon && s.icon.startsWith('data:')) {
+        var url = await uploadImageToStorage('sub-icons', s.id, s.icon);
+        if (url) { iconUrl = url; subs[i].icon = url; }
+      } else if (s.icon && s.icon.startsWith('http')) {
+        iconUrl = s.icon;
+      }
+      var row = { id: s.id, name: s.name, amount: s.amount, day_of_month: s.day, payer: s.user, scope: s.scope || 'shared', icon: iconUrl, created_by: state.supaUserId };
       var r = await getSupa().from('subscriptions').upsert(row);
       if (r.error) errors.push('sub ' + s.name + ': ' + r.error.message);
       else counts.subs++;
     }
+    localStorage.setItem('subs', JSON.stringify(subs));
   } catch(e) { errors.push('subs: ' + e.message); }
 
   // Viajes
