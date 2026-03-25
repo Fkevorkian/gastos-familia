@@ -2113,10 +2113,10 @@ async function onLoginSuccess(session) {
   if(al) al.textContent = uName(state.currentUser)[0];
   if(typeof refreshAvatars === 'function') refreshAvatars();
   if(typeof initTheme === 'function') initTheme();
-  // Cargar avatar desde Supabase Storage si no está en localStorage
+  // Cargar avatar desde Supabase Storage
   try {
     var avatarKey = 'avatar_' + state.currentUser;
-    if (!localStorage.getItem(avatarKey) && state.supaUserId) {
+    if (state.supaUserId) {
       var supa = getSupa();
       var fileName = 'avatar_' + state.supaUserId + '.jpg';
       var urlData = supa.storage.from('avatars').getPublicUrl(fileName);
@@ -2128,6 +2128,7 @@ async function onLoginSuccess(session) {
           reader.onload = function(e){
             localStorage.setItem(avatarKey, e.target.result);
             if(typeof refreshAvatars === 'function') refreshAvatars();
+            if(typeof updateProfileAvatar === 'function') updateProfileAvatar(e.target.result);
           };
           reader.readAsDataURL(blob);
         }).catch(function(){});
@@ -4800,16 +4801,24 @@ async function syncAllToSupabase() {
   } catch(e) { errors.push('viajes: ' + e.message); }
 
   // Avatar de perfil
+  var avatarOk = false;
   try {
     var avatarKey = 'avatar_' + state.currentUser;
     var avatarData = localStorage.getItem(avatarKey);
     if (avatarData && avatarData.startsWith('data:') && state.supaUserId) {
       var avatarUrl = await uploadImageToStorage('avatars', 'avatar_' + state.supaUserId, avatarData);
       if (avatarUrl) {
-        await getSupa().from('profiles').update({ avatar_url: avatarUrl }).eq('id', state.supaUserId);
-        counts.cats++; // reutilizar contador para mostrar algo
+        var profRes = await getSupa().from('profiles').update({ avatar_url: avatarUrl }).eq('id', state.supaUserId);
+        if (profRes.error) errors.push('avatar profiles: ' + profRes.error.message);
+        else avatarOk = true;
         console.log('✅ Avatar subido:', avatarUrl);
+      } else {
+        errors.push('avatar: no se pudo subir a Storage');
       }
+    } else if (!avatarData) {
+      errors.push('avatar: no hay foto de perfil en este dispositivo');
+    } else if (avatarData.startsWith('http')) {
+      avatarOk = true; // ya es URL, no hace falta subir
     }
   } catch(e) { errors.push('avatar: ' + e.message); }
 
@@ -4831,8 +4840,9 @@ async function syncAllToSupabase() {
     + '✅ Establecimientos: ' + counts.estabs + '\n'
     + '✅ Transacciones: ' + counts.txs + '\n'
     + '✅ Suscripciones: ' + counts.subs + '\n'
-    + '✅ Viajes: ' + counts.trips;
-  if (errors.length) msg += '\n\n❌ Errores:\n' + errors.slice(0, 5).join('\n');
+    + '✅ Viajes: ' + counts.trips + '\n'
+    + (avatarOk ? '✅ Avatar: subido' : '⚠️ Avatar: ver errores');
+  if (errors.length) msg += '\n\n❌ Errores:\n' + errors.slice(0, 8).join('\n');
   alert(msg);
 }
 
