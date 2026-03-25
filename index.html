@@ -2326,14 +2326,14 @@ async function loadCategoriesFromSupa() {
   localCats.forEach(function(c){ localCatMap[c.id] = c; });
   const cats = data.map(r => ({
     id: r.id, name: r.name, color: r.color || '#7c6aff', icon: r.icon || 'imprevistos',
-    description: r.description || '',
-    image: (localCatMap[r.id] && localCatMap[r.id].image) ? localCatMap[r.id].image : (r.image || '')
+    description: (localCatMap[r.id] && localCatMap[r.id].description) ? localCatMap[r.id].description : (r.description || ''),
+    image: (localCatMap[r.id] && localCatMap[r.id].image) ? localCatMap[r.id].image : ''
   }));
   localStorage.setItem('cats', JSON.stringify(cats));
 }
 
 async function saveCategoryToSupa(cat) {
-  const row = { id: cat.id, name: cat.name, color: cat.color, icon: cat.icon, description: cat.description || '', image: cat.image || '', created_by: state.supaUserId };
+  const row = { id: cat.id, name: cat.name, color: cat.color, icon: cat.icon, created_by: state.supaUserId };
   const { error } = await getSupa().from('categories').upsert(row);
   if (error) console.warn('Error guardando categoría:', error);
 }
@@ -4607,7 +4607,7 @@ async function syncAllToSupabase() {
     var cats = JSON.parse(localStorage.getItem('cats') || '[]');
     for (var i = 0; i < cats.length; i++) {
       var cat = cats[i];
-      var row = { id: cat.id, name: cat.name, color: cat.color || '#7c6aff', icon: cat.icon || 'imprevistos', description: cat.description || '', created_by: state.supaUserId };
+      var row = { id: cat.id, name: cat.name, color: cat.color || '#7c6aff', icon: cat.icon || 'imprevistos', created_by: state.supaUserId };
       var r = await getSupa().from('categories').upsert(row);
       if (r.error) errors.push('cat ' + cat.name + ': ' + r.error.message);
       else counts.cats++;
