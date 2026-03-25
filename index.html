@@ -2163,13 +2163,13 @@ async function handleProfilePhoto(input) {
     // Comprimir a max 200x200px para que quepa en localStorage del movil
     var img = new Image();
     img.onload = async function() {
-      var MAX = 80;
+      var MAX = 200;
       var ratio = Math.min(MAX / img.width, MAX / img.height, 1);
       var canvas = document.createElement('canvas');
       canvas.width  = Math.round(img.width  * ratio);
       canvas.height = Math.round(img.height * ratio);
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      var base64 = canvas.toDataURL('image/jpeg', 0.6);
+      var base64 = canvas.toDataURL('image/jpeg', 0.8);
 
       // Guardar en localStorage
       try {
@@ -4798,6 +4798,20 @@ async function syncAllToSupabase() {
       else counts.trips++;
     }
   } catch(e) { errors.push('viajes: ' + e.message); }
+
+  // Avatar de perfil
+  try {
+    var avatarKey = 'avatar_' + state.currentUser;
+    var avatarData = localStorage.getItem(avatarKey);
+    if (avatarData && avatarData.startsWith('data:') && state.supaUserId) {
+      var avatarUrl = await uploadImageToStorage('avatars', 'avatar_' + state.supaUserId, avatarData);
+      if (avatarUrl) {
+        await getSupa().from('profiles').update({ avatar_url: avatarUrl }).eq('id', state.supaUserId);
+        counts.cats++; // reutilizar contador para mostrar algo
+        console.log('✅ Avatar subido:', avatarUrl);
+      }
+    }
+  } catch(e) { errors.push('avatar: ' + e.message); }
 
   // Presupuesto general
   try {
