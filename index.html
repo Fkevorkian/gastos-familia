@@ -5184,37 +5184,6 @@ function deleteSub(id) {
   renderSubscriptions();
 }
 
-function renderSubscriptions() {
-  const subs = getSubscriptions();
-  const list = document.getElementById('subs-list');
-  if (!subs.length) {
-    list.innerHTML = '<div style="text-align:center;color:var(--text3);padding:16px;font-size:13px;">Sin suscripciones</div>';
-    return;
-  }
-  const total = subs.reduce((s, x) => s + x.amount, 0);
-  list.innerHTML = subs.map(s => `
-    <div class="sub-item">
-      <div class="sub-logo">${s.name.substring(0,3).toUpperCase()}</div>
-      <div class="sub-info">
-        <div class="sub-name">${s.name}</div>
-        <div class="sub-meta">Día ${s.day} · ${uName(s.user)}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-        <div class="sub-amount">${fmt(s.amount)}</div>
-        <div style="display:flex;gap:4px;">
-          <div class="icon-btn" onclick="openSubSheet('${s.id}')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </div>
-          <div class="icon-btn" style="color:var(--red)" onclick="deleteSub('${s.id}')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/></svg>
-          </div>
-        </div>
-      </div>
-    </div>
-  `).join('') + `<div style="display:flex;justify-content:space-between;padding:12px 0 4px;border-top:1px solid var(--border);margin-top:8px;"><span style="font-size:13px;color:var(--text2);">Total mensual</span><span style="font-weight:700;color:var(--red);">${fmt(total)}</span></div>`;
-}
-
-// ═══════════════════════════════════════════ DASHBOARD ═══════════════════
 
 function renderDashboard() {
   const now = new Date();
