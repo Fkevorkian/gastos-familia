@@ -1711,6 +1711,8 @@ body.light-mode .login-glow {
       <div class="tx-list" id="estab-detail-txlist"></div>
     </div>
   </div>
+
+  <div class="bottom-nav"></div>
 </div>
 
 <!-- SCREEN VIAJES -->
@@ -1776,6 +1778,8 @@ body.light-mode .login-glow {
       <div id="viaje-gastos-list" class="tx-list"></div>
     </div>
   </div>
+
+  <div class="bottom-nav"></div>
 </div>
 
 <!-- 
@@ -2621,7 +2625,6 @@ const NAV_ITEMS = [
   { id:'cats',    label:'Categ.',     icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>' },
   { id:'estab',   label:'Establec.',  icon:'<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="14" r="2"/>' },
   { id:'stats',   label:'Estadíst.',  icon:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>' },
-  { id:'budgets', label:'Presupuesto',icon:'<path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 6v6l4 2"/>' },
   { id:'viajes',  label:'Viajes',     icon:'<path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19 2c-2-2-4-2-5.5-.5L10 5 1.8 6.2l2.4 2.4L2 11l4 4 2.4-4 4.4-4.4 1.6 9.2z"/><line x1="2" y1="22" x2="9" y2="15"/>' },
 ];
 
@@ -4199,6 +4202,10 @@ function saveTx() {
   closeSheet('sheet-add');
   renderAll();
   checkBudgetAlerts();
+  // Si hay un viaje abierto, refrescarlo
+  if (_currentViajeId && typeof renderViajeDetail === 'function') {
+    renderViajeDetail(_currentViajeId);
+  }
 }
 
 // ═══════════════════════════════════════════ CATEGORIES ═══════════════════
@@ -4907,11 +4914,7 @@ function renderChart() {
     const mTxs = txs.filter(t => {
       const td = new Date(t.date);
       if (td.getMonth() !== m || td.getFullYear() !== y) return false;
-      if (filter === 'total') return txVisible(t, state.dashView, state.currentUser);
-      if (filter === 'juan') return t.scope === 'shared' || t.user === 'juan';
-      if (filter === 'esther') return t.scope === 'shared' || t.user === 'esther';
-      if (filter === 'shared') return t.scope === 'shared';
-      return true;
+      return txVisible(t, filter, state.currentUser);
     });
     data.push({
       label: months[m],
