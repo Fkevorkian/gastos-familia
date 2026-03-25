@@ -45,8 +45,13 @@
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
-html, body {
+html {
   height: 100%;
+  height: -webkit-fill-available;
+}
+body {
+  height: 100%;
+  height: -webkit-fill-available;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
@@ -63,6 +68,7 @@ html, body {
 /* ── APP SHELL ── */
 #app {
   height: 100%;
+  min-height: -webkit-fill-available;
   display: flex;
   flex-direction: column;
   max-width: 430px;
@@ -220,8 +226,10 @@ textarea { resize: none; }
   background: var(--bg2);
   border-top: 1px solid var(--border);
   padding: 8px 0;
-  padding-bottom: calc(8px + var(--safe-bottom));
+  padding-bottom: max(8px, calc(8px + env(safe-area-inset-bottom)));
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
 .nav-item {
   flex: 1;
@@ -2107,6 +2115,27 @@ async function onLoginSuccess(session) {
   if(al) al.textContent = uName(state.currentUser)[0];
   if(typeof refreshAvatars === 'function') refreshAvatars();
   if(typeof initTheme === 'function') initTheme();
+  // Cargar avatar desde Supabase Storage si no está en localStorage
+  try {
+    var avatarKey = 'avatar_' + state.currentUser;
+    if (!localStorage.getItem(avatarKey) && state.supaUserId) {
+      var supa = getSupa();
+      var fileName = 'avatar_' + state.supaUserId + '.jpg';
+      var urlData = supa.storage.from('avatars').getPublicUrl(fileName);
+      if (urlData && urlData.data && urlData.data.publicUrl) {
+        var imgUrl = urlData.data.publicUrl + '?t=' + Date.now();
+        fetch(imgUrl).then(function(r){ return r.ok ? r.blob() : null; }).then(function(blob){
+          if (!blob) return;
+          var reader = new FileReader();
+          reader.onload = function(e){
+            localStorage.setItem(avatarKey, e.target.result);
+            if(typeof refreshAvatars === 'function') refreshAvatars();
+          };
+          reader.readAsDataURL(blob);
+        }).catch(function(){});
+      }
+    }
+  } catch(avatarErr) { /* silencioso */ }
 }
 
 function updateUserUI() {
@@ -2288,14 +2317,20 @@ function supaUserIdToName(uid) {
 async function loadCategoriesFromSupa() {
   const { data, error } = await getSupa().from('categories').select('*').order('created_at');
   if (error || !data || !data.length) return; // No sobreescribir localStorage si Supabase vacío
+  // Preservar imágenes que solo están en localStorage (base64 no se guarda en Supabase)
+  const localCats = JSON.parse(localStorage.getItem('cats') || '[]');
+  const localCatMap = {};
+  localCats.forEach(function(c){ localCatMap[c.id] = c; });
   const cats = data.map(r => ({
-    id: r.id, name: r.name, color: r.color || '#7c6aff', icon: r.icon || 'imprevistos'
+    id: r.id, name: r.name, color: r.color || '#7c6aff', icon: r.icon || 'imprevistos',
+    description: r.description || '',
+    image: (localCatMap[r.id] && localCatMap[r.id].image) ? localCatMap[r.id].image : (r.image || '')
   }));
   localStorage.setItem('cats', JSON.stringify(cats));
 }
 
 async function saveCategoryToSupa(cat) {
-  const row = { id: cat.id, name: cat.name, color: cat.color, icon: cat.icon, created_by: state.supaUserId };
+  const row = { id: cat.id, name: cat.name, color: cat.color, icon: cat.icon, description: cat.description || '', image: cat.image || '', created_by: state.supaUserId };
   const { error } = await getSupa().from('categories').upsert(row);
   if (error) console.warn('Error guardando categoría:', error);
 }
@@ -2309,10 +2344,15 @@ async function deleteCategoryFromSupa(id) {
 async function loadEstabsFromSupa() {
   const { data, error } = await getSupa().from('establishments').select('*, categories(id,name,color,icon)').order('name');
   if (error || !data || !data.length) return;
+  // Preservar iconos que solo están en localStorage
+  const localEstabs = JSON.parse(localStorage.getItem('estabs') || '[]');
+  const localEstabMap = {};
+  localEstabs.forEach(function(e){ localEstabMap[e.id] = e; });
   const estabs = data.map(r => ({
     id: r.id, name: r.name,
     catId: r.category_id || '', catName: r.categories?.name || '', catColor: r.categories?.color || '', catIcon: r.categories?.icon || '',
-    city: r.city || '', url: r.url || '', notes: r.notes || '', icon: r.icon || ''
+    city: r.city || '', url: r.url || '', notes: r.notes || '',
+    icon: (localEstabMap[r.id] && localEstabMap[r.id].icon) ? localEstabMap[r.id].icon : (r.icon || '')
   }));
   localStorage.setItem('estabs', JSON.stringify(estabs));
 }
@@ -2420,9 +2460,13 @@ async function saveGenBudgetToSupa(amount) {
 async function loadSubsFromSupa() {
   const { data, error } = await getSupa().from('subscriptions').select('*').order('name');
   if (error || !data || !data.length) return;
+  const localSubs = JSON.parse(localStorage.getItem('subs') || '[]');
+  const localSubMap = {};
+  localSubs.forEach(function(s){ localSubMap[s.id] = s; });
   const subs = data.map(r => ({
     id: r.id, name: r.name, amount: parseFloat(r.amount),
-    day: r.day_of_month, user: r.payer, scope: r.scope || 'shared'
+    day: r.day_of_month, user: r.payer, scope: r.scope || 'shared',
+    icon: (localSubMap[r.id] && localSubMap[r.id].icon) ? localSubMap[r.id].icon : ''
   }));
   localStorage.setItem('subs', JSON.stringify(subs));
 }
@@ -2966,8 +3010,10 @@ function saveGeneralBudget() {
   const v = parseFloat(document.getElementById('gen-budget-input').value);
   if (!v) { removeGeneralBudget(); return; }
   localStorage.setItem('gen_budget', JSON.stringify(v));
+  if (typeof saveGenBudgetToSupa === 'function') saveGenBudgetToSupa(v);
   closeSheet('sheet-gen-budget');
   renderBudgets();
+  if (typeof renderBudgetMini === 'function') renderBudgetMini();
 }
 
 function removeGeneralBudget() {
@@ -4156,6 +4202,9 @@ function updateTx(txId) {
   });
 
   if (saveTxs) saveTxs(txs); else localStorage.setItem('txs', JSON.stringify(txs));
+  if (typeof saveTxToSupa === 'function' && state.supaUserId) {
+    saveTxToSupa(txs[idx]).catch(function(e){ console.warn('Error Supabase updateTx:', e); });
+  }
   closeSheet('sheet-add');
 
   // Restablecer botón guardar
@@ -4172,6 +4221,7 @@ function deleteTx(txId) {
   var txs = getTransactions ? getTransactions() : JSON.parse(localStorage.getItem('txs')||'[]');
   var filtered = txs.filter(function(t){ return t.id !== txId; });
   if (saveTxs) saveTxs(filtered); else localStorage.setItem('txs', JSON.stringify(filtered));
+  if (typeof deleteTxFromSupa === 'function' && state.supaUserId) deleteTxFromSupa(txId);
   if (typeof renderDashboard === 'function') renderDashboard();
   if (_currentViajeId && typeof renderViajeDetail === 'function') renderViajeDetail(_currentViajeId);
 }
