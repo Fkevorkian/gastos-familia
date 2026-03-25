@@ -3445,7 +3445,7 @@ function handleEstabIcon(input) {
 }
 
 function clearEstabIcon() {
-  localStorage.removeItem('estab_icon_tmp');
+  localStorage.setItem('estab_icon_tmp', '__cleared__');
   const prev = document.getElementById('estab-icon-preview');
   if(prev) prev.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   const clearBtn = document.getElementById('estab-icon-clear-btn');
@@ -4382,7 +4382,7 @@ function handleCatImg(input) {
 }
 
 function clearCatImg() {
-  localStorage.removeItem('cat_img_tmp');
+  localStorage.setItem('cat_img_tmp', '__cleared__');
   var prev = document.getElementById('cat-img-preview');
   if (prev) prev.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   var clr = document.getElementById('cat-img-clear-btn');
@@ -4462,8 +4462,13 @@ function saveCat() {
   var editId = document.getElementById('cat-edit-id').value;
   var descEl = document.getElementById('cat-description');
   var description = descEl ? descEl.value.trim() : '';
-  var imgVal = localStorage.getItem('cat_img_tmp') || '';
+  var imgTmp = localStorage.getItem('cat_img_tmp');
   localStorage.removeItem('cat_img_tmp');
+  var existingImg = editId ? ((getCategories().find(function(c){return c.id===editId;})||{}).image||'') : '';
+  var imgVal;
+  if (imgTmp === '__cleared__') imgVal = '';
+  else if (!imgTmp) imgVal = existingImg;
+  else imgVal = imgTmp;
   var cats = getCategories ? getCategories() : JSON.parse(localStorage.getItem('cats')||'[]');
   var cat;
   if (editId) {
@@ -4490,8 +4495,8 @@ function saveCat() {
   if (cat) {
     (async function() {
       var imageUrl = cat.image;
-      if (imgVal && imgVal.startsWith('data:')) {
-        var url = await uploadImageToStorage('cat-images', cat.id, imgVal);
+      if (imgTmp && imgTmp.startsWith('data:')) {
+        var url = await uploadImageToStorage('cat-images', cat.id, imgTmp);
         if (url) imageUrl = url;
       } else if (!imgVal) {
         imageUrl = '';
@@ -4561,9 +4566,13 @@ function saveEstab() {
   const cats = getCategories();
   const cat = cats.find(c => c.id === catId);
   const urlVal = (document.getElementById('estab-url')?.value || '').trim();
-  const iconVal = localStorage.getItem('estab_icon_tmp') || '';
+  const iconTmp = localStorage.getItem('estab_icon_tmp');
   localStorage.removeItem('estab_icon_tmp');
   const existingIcon = editId ? (getEstablishments().find(e=>e.id===editId)?.icon || '') : '';
+  var iconVal;
+  if (iconTmp === '__cleared__') iconVal = '';
+  else if (!iconTmp) iconVal = existingIcon;
+  else iconVal = iconTmp;
   const data = {
     id: editId || 'estab_' + Date.now(),
     name,
@@ -4573,7 +4582,7 @@ function saveEstab() {
     city: document.getElementById('estab-city').value.trim(),
     notes: document.getElementById('estab-notes').value.trim(),
     url: urlVal,
-    icon: iconVal || existingIcon,
+    icon: iconVal,
   };
   if (editId) {
     const idx = estabs.findIndex(e => e.id === editId);
@@ -5106,7 +5115,7 @@ function handleSubIcon(input) {
 }
 
 function clearSubIcon() {
-  localStorage.removeItem('sub_icon_tmp');
+  localStorage.setItem('sub_icon_tmp', '__cleared__');
   var prev = document.getElementById('sub-icon-preview');
   if (prev) prev.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   var clr = document.getElementById('sub-icon-clear-btn');
@@ -5122,15 +5131,23 @@ function saveSub() {
   const editId = document.getElementById('sub-edit-id').value;
   const subs = getSubscriptions();
   const isShared = state.subUser === 'shared';
-  const subIconVal = localStorage.getItem('sub_icon_tmp') || '';
+  const subIconTmp = localStorage.getItem('sub_icon_tmp');
   localStorage.removeItem('sub_icon_tmp');
   const existingSubIcon = editId ? (getSubscriptions().find(s=>s.id===editId)?.icon||'') : '';
+  // subIconTmp null = no tocó la imagen → mantener existente
+  // subIconTmp '__cleared__' = borró la imagen → vaciar
+  // subIconTmp 'data:...' = subió nueva → usar nueva
+  // subIconTmp 'http...' = ya es URL → mantener
+  var subIconVal;
+  if (subIconTmp === '__cleared__') subIconVal = '';
+  else if (!subIconTmp) subIconVal = existingSubIcon;
+  else subIconVal = subIconTmp;
   const data = {
     id: editId || 'sub_' + Date.now(),
     name, amount, day,
     user: isShared ? 'shared' : state.subUser,
     scope: isShared ? 'shared' : 'personal',
-    icon: subIconVal || existingSubIcon,
+    icon: subIconVal,
   };
   if (editId) {
     const idx = subs.findIndex(s => s.id === editId);
@@ -5144,18 +5161,17 @@ function saveSub() {
   // Subir icono a Storage y guardar en Supabase (async)
   (async function() {
     var iconUrl = data.icon;
-    if (subIconVal && subIconVal.startsWith('data:')) {
-      var url = await uploadImageToStorage('sub-icons', data.id, subIconVal);
+    if (subIconTmp && subIconTmp.startsWith('data:')) {
+      // Nueva imagen — subir a Storage
+      var url = await uploadImageToStorage('sub-icons', data.id, subIconTmp);
       if (url) {
         iconUrl = url;
-        // Actualizar localStorage con URL
         var subsNow = getSubscriptions();
         var idx2 = subsNow.findIndex(function(s){ return s.id === data.id; });
         if (idx2 > -1) { subsNow[idx2].icon = url; saveSubscriptions(subsNow); }
       }
-    } else if (!subIconVal) {
-      iconUrl = '';
     }
+    // iconUrl ya es '' si se borró, o la URL existente si no se tocó
     var row = { id: data.id, name: data.name, amount: data.amount, day_of_month: data.day, payer: data.user, scope: data.scope || 'shared', icon: iconUrl, created_by: state.supaUserId };
     var r = await getSupa().from('subscriptions').upsert(row);
     if (r.error) console.warn('saveSub Supa error:', r.error);
