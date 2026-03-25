@@ -5139,9 +5139,27 @@ function saveSub() {
     subs.push(data);
   }
   saveSubscriptions(subs);
-  if(typeof saveSubToSupa==='function') saveSubToSupa(data);
   closeSheet('sheet-sub');
   renderSubscriptions();
+  // Subir icono a Storage y guardar en Supabase (async)
+  (async function() {
+    var iconUrl = data.icon;
+    if (subIconVal && subIconVal.startsWith('data:')) {
+      var url = await uploadImageToStorage('sub-icons', data.id, subIconVal);
+      if (url) {
+        iconUrl = url;
+        // Actualizar localStorage con URL
+        var subsNow = getSubscriptions();
+        var idx2 = subsNow.findIndex(function(s){ return s.id === data.id; });
+        if (idx2 > -1) { subsNow[idx2].icon = url; saveSubscriptions(subsNow); }
+      }
+    } else if (!subIconVal) {
+      iconUrl = '';
+    }
+    var row = { id: data.id, name: data.name, amount: data.amount, day_of_month: data.day, payer: data.user, scope: data.scope || 'shared', icon: iconUrl, created_by: state.supaUserId };
+    var r = await getSupa().from('subscriptions').upsert(row);
+    if (r.error) console.warn('saveSub Supa error:', r.error);
+  })();
 }
 
 function deleteSub(id) {
