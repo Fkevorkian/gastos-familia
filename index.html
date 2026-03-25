@@ -2345,19 +2345,26 @@ async function deleteCategoryFromSupa(id) {
 
 // ── ESTABLECIMIENTOS ──
 async function loadEstabsFromSupa() {
-  const { data, error } = await getSupa().from('establishments').select('*, categories(id,name,color,icon)').order('name');
+  const { data, error } = await getSupa().from('establishments').select('*').order('name');
   if (error) { console.warn('establishments error:', error); return; }
   if (!data || !data.length) { console.log('establishments: 0 filas'); return; }
-  // Preservar iconos que solo están en localStorage
+  // Enriquecer con datos de categorías desde localStorage
+  const localCats = JSON.parse(localStorage.getItem('cats') || '[]');
+  const catMap = {};
+  localCats.forEach(function(c){ catMap[c.id] = c; });
+  // Preservar iconos locales (base64 no se guarda en Supabase)
   const localEstabs = JSON.parse(localStorage.getItem('estabs') || '[]');
   const localEstabMap = {};
   localEstabs.forEach(function(e){ localEstabMap[e.id] = e; });
-  const estabs = data.map(r => ({
-    id: r.id, name: r.name,
-    catId: r.category_id || '', catName: r.categories?.name || '', catColor: r.categories?.color || '', catIcon: r.categories?.icon || '',
-    city: r.city || '', url: r.url || '', notes: r.notes || '',
-    icon: (localEstabMap[r.id] && localEstabMap[r.id].icon) ? localEstabMap[r.id].icon : (r.icon || '')
-  }));
+  const estabs = data.map(function(r) {
+    var cat = catMap[r.category_id] || {};
+    return {
+      id: r.id, name: r.name,
+      catId: r.category_id || '', catName: cat.name || '', catColor: cat.color || '', catIcon: cat.icon || '',
+      city: r.city || '', url: r.url || '', notes: r.notes || '',
+      icon: (localEstabMap[r.id] && localEstabMap[r.id].icon) ? localEstabMap[r.id].icon : ''
+    };
+  });
   localStorage.setItem('estabs', JSON.stringify(estabs));
 }
 
@@ -2376,21 +2383,30 @@ async function deleteEstabFromSupa(id) {
 async function loadTransactionsFromSupa() {
   const { data, error } = await getSupa()
     .from('transactions')
-    .select('*, categories(id,name,color,icon), establishments(id,name)')
+    .select('*')
     .order('date', { ascending: false });
   if (error) { console.warn('transactions error:', error); return; }
   if (!data || !data.length) { console.log('transactions: 0 filas'); return; }
-  const txs = data.map(r => ({
-    id: r.id, type: r.type, scope: r.scope || 'shared',
-    amount: parseFloat(r.amount), date: r.date,
-    user: r.user_id ? supaUserIdToName(r.user_id) : 'juan',
-    supaUserId: r.user_id,
-    catId: r.category_id || '', catName: r.categories?.name || '', catColor: r.categories?.color || '', catIcon: r.categories?.icon || '',
-    estabId: r.establishment_id || '', estabName: r.establishments?.name || '',
-    notes: r.notes || '', concepto: r.concepto || '',
-    bazar: r.bazar || false, viajeId: r.viaje_id || '',
-    photoUrl: r.photo_url || ''
-  }));
+  // Enriquecer con datos locales de cats y estabs
+  const localCats = JSON.parse(localStorage.getItem('cats') || '[]');
+  const localEstabs = JSON.parse(localStorage.getItem('estabs') || '[]');
+  const catMap = {}; localCats.forEach(function(c){ catMap[c.id] = c; });
+  const estabMap = {}; localEstabs.forEach(function(e){ estabMap[e.id] = e; });
+  const txs = data.map(function(r) {
+    var cat = catMap[r.category_id] || {};
+    var estab = estabMap[r.establishment_id] || {};
+    return {
+      id: r.id, type: r.type, scope: r.scope || 'shared',
+      amount: parseFloat(r.amount), date: r.date,
+      user: r.user_id ? supaUserIdToName(r.user_id) : 'juan',
+      supaUserId: r.user_id,
+      catId: r.category_id || '', catName: cat.name || '', catColor: cat.color || '', catIcon: cat.icon || '',
+      estabId: r.establishment_id || '', estabName: estab.name || '',
+      notes: r.notes || '', concepto: r.concepto || '',
+      bazar: r.bazar || false, viajeId: r.viaje_id || '',
+      photoUrl: r.photo_url || ''
+    };
+  });
   localStorage.setItem('txs', JSON.stringify(txs));
 }
 
