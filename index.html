@@ -2289,10 +2289,11 @@ async function checkSession() {
 async function loadAllDataFromSupabase() {
   try {
     console.log('⏳ Cargando datos desde Supabase...');
+    // Orden importante: cats primero, luego estabs, luego txs (cada una usa la anterior)
+    await loadCategoriesFromSupa();
+    await loadEstabsFromSupa();
+    await loadTransactionsFromSupa();
     await Promise.all([
-      loadCategoriesFromSupa(),
-      loadEstabsFromSupa(),
-      loadTransactionsFromSupa(),
       loadBudgetsFromSupa(),
       loadSubsFromSupa(),
       loadTripsFromSupa(),
@@ -2301,7 +2302,7 @@ async function loadAllDataFromSupabase() {
     var cats = JSON.parse(localStorage.getItem('cats')||'[]');
     var txs = JSON.parse(localStorage.getItem('txs')||'[]');
     var estabs = JSON.parse(localStorage.getItem('estabs')||'[]');
-    console.log('✅ Datos cargados desde Supabase — cats:', cats.length, 'txs:', txs.length, 'estabs:', estabs.length);
+    console.log('✅ Datos cargados — cats:', cats.length, 'txs:', txs.length, 'estabs:', estabs.length);
   } catch(e) {
     console.warn('❌ Error cargando desde Supabase:', e);
   }
