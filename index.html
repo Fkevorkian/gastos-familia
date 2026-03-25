@@ -4699,34 +4699,47 @@ async function syncAllToSupabase() {
 
 async function runDiagnostic() {
   var lines = [];
-  // 1. Sesión
   try {
     var sess = await getSupa().auth.getSession();
     var email = sess.data?.session?.user?.email || 'NO SESSION';
+    var uid = sess.data?.session?.user?.id || 'NO UID';
     lines.push('Auth: ' + email);
+    lines.push('UID: ' + uid.substring(0,8) + '...');
   } catch(e) { lines.push('Auth error: ' + e.message); }
 
-  // 2. localStorage
   lines.push('cats local: ' + (JSON.parse(localStorage.getItem('cats')||'[]').length));
   lines.push('txs local: ' + (JSON.parse(localStorage.getItem('txs')||'[]').length));
   lines.push('estabs local: ' + (JSON.parse(localStorage.getItem('estabs')||'[]').length));
   lines.push('gen_budget: ' + (localStorage.getItem('gen_budget') || 'null'));
 
-  // 3. Supabase directo
   try {
     var r1 = await getSupa().from('categories').select('id', {count:'exact', head:true});
-    lines.push('Supa cats: ' + (r1.count !== null ? r1.count : 'err:'+JSON.stringify(r1.error)));
+    lines.push('Supa cats: ' + (r1.count !== null ? r1.count : 'err:'+r1.error?.message));
   } catch(e) { lines.push('Supa cats err: ' + e.message); }
 
   try {
-    var r2 = await getSupa().from('transactions').select('id', {count:'exact', head:true});
-    lines.push('Supa txs: ' + (r2.count !== null ? r2.count : 'err:'+JSON.stringify(r2.error)));
+    var r2 = await getSupa().from('establishments').select('id,name').limit(3);
+    lines.push('Supa estabs: ' + (r2.data ? r2.data.length + ' (' + (r2.data.map(function(e){return e.name;}).join(',')) + ')' : 'err:'+r2.error?.message));
+  } catch(e) { lines.push('Supa estabs err: ' + e.message); }
+
+  try {
+    var r3 = await getSupa().from('transactions').select('id,scope,user_id').limit(3);
+    lines.push('Supa txs: ' + (r3.data ? r3.data.length : 'err:'+r3.error?.message));
+    if (r3.data && r3.data.length) lines.push('  scope: ' + r3.data[0].scope + ', uid: ' + (r3.data[0].user_id||'null').substring(0,8));
   } catch(e) { lines.push('Supa txs err: ' + e.message); }
 
   try {
-    var r3 = await getSupa().from('general_budget').select('amount').limit(1);
-    lines.push('Supa budget: ' + (r3.data?.length ? r3.data[0].amount : 'vacio, err:'+JSON.stringify(r3.error)));
+    var r4 = await getSupa().from('general_budget').select('amount').limit(1);
+    lines.push('Supa budget: ' + (r4.data?.length ? r4.data[0].amount : 'vacio'));
   } catch(e) { lines.push('Supa budget err: ' + e.message); }
+
+  // Forzar recarga y ver qué pasa
+  try {
+    await loadEstabsFromSupa();
+    lines.push('Post-reload estabs: ' + (JSON.parse(localStorage.getItem('estabs')||'[]').length));
+    await loadTransactionsFromSupa();
+    lines.push('Post-reload txs: ' + (JSON.parse(localStorage.getItem('txs')||'[]').length));
+  } catch(e) { lines.push('Reload err: ' + e.message); }
 
   alert(lines.join('\n'));
 }
