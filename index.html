@@ -5208,9 +5208,9 @@ function renderDashboard() {
   const months = ['En', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   document.getElementById('home-month-label').textContent = months[month];
 
-  // Top category
+  // Top category — usa todos los gastos del mes (no filtrados por vista)
   const catTotals = {};
-  monthTxs.filter(t => t.type === 'expense').forEach(t => {
+  allMonthTxs.filter(t => t.type === 'expense').forEach(t => {
     catTotals[t.catName || 'Otros'] = (catTotals[t.catName || 'Otros'] || 0) + t.amount;
   });
   const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0];
