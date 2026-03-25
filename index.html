@@ -1025,10 +1025,20 @@ body.light-mode .login-glow {
     <!-- Presupuestos resumen -->
     <div class="card" id="budget-summary-card">
       <div class="card-header">
-        <div class="card-title">Presupuestos</div>
-        <span class="section-action" onclick="showScreen('screen-budgets')">Ver todos</span>
+        <div class="card-title">Presupuesto</div>
       </div>
-      <div id="budget-mini-list"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div id="home-budget-btn" onclick="showScreen('screen-budgets')" style="background:var(--bg3);border-radius:12px;padding:14px;cursor:pointer;border:1px solid var(--border);">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Presupuesto</div>
+          <div style="font-family:var(--font-serif);font-size:20px;font-weight:600;" id="home-gen-budget-label">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;">/mes</div>
+        </div>
+        <div id="home-estado-btn" onclick="showHomeEstado()" style="background:var(--bg3);border-radius:12px;padding:14px;cursor:pointer;border:1px solid var(--border);">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Estado actual</div>
+          <div style="font-family:var(--font-serif);font-size:20px;font-weight:600;color:var(--green);" id="home-estado-label">Ver →</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;" id="home-estado-sub">Este mes</div>
+        </div>
+      </div>
     </div>
 
     <!-- Últimas transacciones -->
@@ -1320,7 +1330,6 @@ body.light-mode .login-glow {
 <div id="screen-budgets" class="screen">
   <div class="topbar">
     <div class="topbar-title">Presupuesto</div>
-    <button class="btn btn-sm btn-outline" onclick="openBudgetSheet()">+ Por categoría</button>
   </div>
   <div class="scroll-content">
     <!-- Presupuesto general -->
@@ -1344,8 +1353,7 @@ body.light-mode .login-glow {
       </div>
     </div>
 
-    <div style="font-size:13px;color:var(--text3);margin-bottom:12px;padding:0 2px;">Límites por categoría (opcionales)</div>
-    <div id="budgets-list"></div>
+
 
     <!-- Enlace a suscripciones -->
     <div class="card" style="cursor:pointer;border-color:rgba(124,106,255,.25);background:rgba(124,106,255,.04);" onclick="switchNav('subs')">
