@@ -1423,6 +1423,9 @@ body.light-mode .login-glow {
           <button onclick="document.getElementById('profile-photo-input').click()" style="font-size:11px;color:var(--accent2);background:none;border:none;padding:4px 0;cursor:pointer;margin-top:4px;">Cambiar foto</button>
         </div>
       </div>
+      <div class="settings-item" onclick="syncAllToSupabase()" style="cursor:pointer;margin-top:4px;">
+        <span class="settings-label" style="color:var(--blue);">☁️ Sincronizar todo a Supabase</span>
+      </div>
       <div class="settings-item" onclick="runDiagnostic()" style="cursor:pointer;margin-top:4px;">
         <span class="settings-label" style="color:var(--text3);font-size:12px;">🔍 Diagnóstico Supabase</span>
       </div>
@@ -4588,6 +4591,110 @@ function deleteBudget(id) {
   if (!confirm('¿Eliminar este presupuesto?')) return;
   saveBudgets(getBudgets().filter(b => b.id !== id));
   renderBudgets();
+}
+
+async function syncAllToSupabase() {
+  if (!state.supaUserId) { alert('Debes estar logado para sincronizar'); return; }
+  
+  var btn = document.querySelector('[onclick="syncAllToSupabase()"]');
+  if (btn) btn.textContent = '⏳ Sincronizando...';
+  
+  var errors = [];
+  var counts = { cats: 0, estabs: 0, txs: 0, subs: 0, trips: 0 };
+
+  // Categorías
+  try {
+    var cats = JSON.parse(localStorage.getItem('cats') || '[]');
+    for (var i = 0; i < cats.length; i++) {
+      var cat = cats[i];
+      var row = { id: cat.id, name: cat.name, color: cat.color || '#7c6aff', icon: cat.icon || 'imprevistos', description: cat.description || '', created_by: state.supaUserId };
+      var r = await getSupa().from('categories').upsert(row);
+      if (r.error) errors.push('cat ' + cat.name + ': ' + r.error.message);
+      else counts.cats++;
+    }
+  } catch(e) { errors.push('cats: ' + e.message); }
+
+  // Establecimientos
+  try {
+    var estabs = JSON.parse(localStorage.getItem('estabs') || '[]');
+    for (var i = 0; i < estabs.length; i++) {
+      var e = estabs[i];
+      var row = { id: e.id, name: e.name, category_id: e.catId || null, city: e.city || '', url: e.url || '', notes: e.notes || '', created_by: state.supaUserId };
+      var r = await getSupa().from('establishments').upsert(row);
+      if (r.error) errors.push('estab ' + e.name + ': ' + r.error.message);
+      else counts.estabs++;
+    }
+  } catch(e) { errors.push('estabs: ' + e.message); }
+
+  // Transacciones
+  try {
+    var txs = JSON.parse(localStorage.getItem('txs') || '[]');
+    var nameMap = JSON.parse(localStorage.getItem('supa_name_map') || '{}');
+    for (var i = 0; i < txs.length; i++) {
+      var tx = txs[i];
+      var ownerUid = nameMap[tx.user] || state.supaUserId;
+      var row = {
+        id: tx.id, type: tx.type, scope: tx.scope || 'shared',
+        amount: tx.amount, date: tx.date,
+        user_id: ownerUid,
+        category_id: tx.catId || null,
+        establishment_id: tx.estabId || null,
+        notes: tx.notes || '', concepto: tx.concepto || '',
+        bazar: tx.bazar || false,
+        viaje_id: tx.viajeId || null,
+        created_by: state.supaUserId
+      };
+      var r = await getSupa().from('transactions').upsert(row);
+      if (r.error) errors.push('tx ' + tx.id + ': ' + r.error.message);
+      else counts.txs++;
+    }
+  } catch(e) { errors.push('txs: ' + e.message); }
+
+  // Suscripciones
+  try {
+    var subs = JSON.parse(localStorage.getItem('subs') || '[]');
+    for (var i = 0; i < subs.length; i++) {
+      var s = subs[i];
+      var row = { id: s.id, name: s.name, amount: s.amount, day_of_month: s.day, payer: s.user, scope: s.scope || 'shared', created_by: state.supaUserId };
+      var r = await getSupa().from('subscriptions').upsert(row);
+      if (r.error) errors.push('sub ' + s.name + ': ' + r.error.message);
+      else counts.subs++;
+    }
+  } catch(e) { errors.push('subs: ' + e.message); }
+
+  // Viajes
+  try {
+    var viajes = JSON.parse(localStorage.getItem('viajes') || '[]');
+    for (var i = 0; i < viajes.length; i++) {
+      var v = viajes[i];
+      var row = { id: v.id, name: v.name, start_date: v.start || null, end_date: v.end || null, notes: v.notes || '', status: v.status || 'open', created_by: state.supaUserId };
+      var r = await getSupa().from('trips').upsert(row);
+      if (r.error) errors.push('viaje ' + v.name + ': ' + r.error.message);
+      else counts.trips++;
+    }
+  } catch(e) { errors.push('viajes: ' + e.message); }
+
+  // Presupuesto general
+  try {
+    var genRaw = localStorage.getItem('gen_budget');
+    if (genRaw) {
+      var amount = parseFloat(JSON.parse(genRaw));
+      await getSupa().from('general_budget').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      var r = await getSupa().from('general_budget').insert({ amount });
+      if (r.error) errors.push('budget: ' + r.error.message);
+    }
+  } catch(e) { errors.push('budget: ' + e.message); }
+
+  if (btn) btn.textContent = '☁️ Sincronizar todo a Supabase';
+
+  var msg = 'Sincronizado:\n'
+    + '✅ Categorías: ' + counts.cats + '\n'
+    + '✅ Establecimientos: ' + counts.estabs + '\n'
+    + '✅ Transacciones: ' + counts.txs + '\n'
+    + '✅ Suscripciones: ' + counts.subs + '\n'
+    + '✅ Viajes: ' + counts.trips;
+  if (errors.length) msg += '\n\n❌ Errores:\n' + errors.slice(0, 5).join('\n');
+  alert(msg);
 }
 
 async function runDiagnostic() {
