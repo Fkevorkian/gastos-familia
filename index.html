@@ -1033,9 +1033,9 @@ body.light-mode .login-glow {
           <div style="font-family:var(--font-serif);font-size:20px;font-weight:600;" id="home-gen-budget-label">—</div>
           <div style="font-size:11px;color:var(--text3);margin-top:3px;">/mes</div>
         </div>
-        <div id="home-estado-btn" onclick="showHomeEstado()" style="background:var(--bg3);border-radius:12px;padding:14px;cursor:pointer;border:1px solid var(--border);">
+        <div id="home-estado-btn" style="background:var(--bg3);border-radius:12px;padding:14px;border:1px solid var(--border);">
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Estado actual</div>
-          <div style="font-family:var(--font-serif);font-size:20px;font-weight:600;color:var(--green);" id="home-estado-label">Ver →</div>
+          <div style="font-family:var(--font-serif);font-size:20px;font-weight:600;color:var(--green);" id="home-estado-label">—</div>
           <div style="font-size:11px;color:var(--text3);margin-top:3px;" id="home-estado-sub">Este mes</div>
         </div>
       </div>
@@ -1706,7 +1706,14 @@ body.light-mode .login-glow {
   <div class="topbar">
     <button class="topbar-back" onclick="showScreen('screen-estab')">← Atrás</button>
     <div class="topbar-title" id="estab-detail-title">Establecimiento</div>
-    <div style="width:60px;"></div>
+    <div style="display:flex;gap:4px;">
+      <div class="icon-btn" id="estab-detail-edit-btn" onclick="openEstabSheet(window._currentEstabId)" title="Editar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </div>
+      <div class="icon-btn" style="color:var(--red)" id="estab-detail-delete-btn" onclick="deleteEstabFromDetail(window._currentEstabId)" title="Eliminar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/></svg>
+      </div>
+    </div>
   </div>
   <div class="scroll-content">
     <div class="card" id="estab-detail-info" style="margin-bottom:16px;"></div>
@@ -2765,6 +2772,18 @@ function openCatSheet(id) {
   document.getElementById('sheet-cat').classList.add('open');
 }
 
+function deleteEstabFromDetail(id) {
+  if (!id) return;
+  if (!confirm('¿Eliminar este establecimiento?')) return;
+  var estabs = typeof getEstablishments === 'function' ? getEstablishments() : [];
+  estabs = estabs.filter(function(e){ return e.id !== id; });
+  if (typeof saveEstablishments === 'function') saveEstablishments(estabs);
+  if (typeof deleteEstabFromSupa === 'function') deleteEstabFromSupa(id);
+  window._currentEstabId = null;
+  showScreen('screen-estab');
+  if (typeof renderEstablishments === 'function') renderEstablishments();
+}
+
 function openEstabSheet(id) {
   document.getElementById('estab-name').value = '';
   document.getElementById('estab-city').value = '';
@@ -3065,6 +3084,7 @@ function quickCreateEstab() {
 
 // ── DETALLE ESTABLECIMIENTO ──
 function openEstabDetail(id) {
+  window._currentEstabId = id;
   var estabs = getEstablishments ? getEstablishments() : JSON.parse(localStorage.getItem('estabs')||'[]');
   var estab = estabs.find(function(e){ return e.id === id; });
   if (!estab) return;
@@ -4435,6 +4455,9 @@ function saveEstab() {
   if(typeof saveEstabToSupa==='function') saveEstabToSupa(data);
   closeSheet('sheet-estab');
   renderEstablishments();
+  if (window._currentEstabId === data.id && typeof openEstabDetail === 'function') {
+    openEstabDetail(data.id);
+  }
 }
 
 function deleteEstab(id) {
@@ -4857,23 +4880,36 @@ function renderDashboard() {
 }
 
 function renderBudgetMini() {
-  const budgets = getBudgets();
-  const el = document.getElementById('budget-mini-list');
-  if (!budgets.length) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:8px 0;">Sin presupuestos definidos</div>';
-    return;
+  var genRaw = localStorage.getItem('gen_budget');
+  var genLimit = genRaw ? parseFloat(JSON.parse(genRaw)) : null;
+
+  // Botón izquierda: presupuesto total
+  var homeLbl = document.getElementById('home-gen-budget-label');
+  if (homeLbl) homeLbl.textContent = genLimit ? fmt(genLimit) : 'Sin límite';
+
+  // Botón derecha: estado actual (gastado vs presupuesto)
+  var now = new Date();
+  var month = now.getMonth(); var year = now.getFullYear();
+  var txs = getTransactions().filter(function(t) {
+    var d = new Date(t.date);
+    return t.type === 'expense' && d.getMonth() === month && d.getFullYear() === year;
+  });
+  var totalSpent = txs.reduce(function(s,t){ return s + t.amount; }, 0);
+  var homeEstadoLbl = document.getElementById('home-estado-label');
+  var homeEstadoSub = document.getElementById('home-estado-sub');
+  if (homeEstadoLbl) {
+    if (genLimit) {
+      var remaining = genLimit - totalSpent;
+      var pct = Math.round((totalSpent / genLimit) * 100);
+      homeEstadoLbl.textContent = fmt(Math.abs(remaining));
+      homeEstadoLbl.style.color = remaining < 0 ? 'var(--red)' : 'var(--green)';
+      if (homeEstadoSub) homeEstadoSub.textContent = (remaining < 0 ? 'Excedido ' : 'Quedan ') + pct + '% gastado';
+    } else {
+      homeEstadoLbl.textContent = fmt(totalSpent);
+      homeEstadoLbl.style.color = 'var(--text)';
+      if (homeEstadoSub) homeEstadoSub.textContent = 'Gastado este mes';
+    }
   }
-  const txs = getTransactions();
-  const now = new Date();
-  el.innerHTML = budgets.slice(0, 3).map(b => {
-    const spent = txs.filter(t => t.type === 'expense' && t.catId === b.catId && new Date(t.date).getMonth() === now.getMonth()).reduce((s, t) => s + t.amount, 0);
-    const pct = Math.min((spent / b.amount) * 100, 100);
-    const status = pct >= 100 ? 'over' : pct >= 90 ? 'warn' : 'ok';
-    return `<div class="budget-item">
-      <div class="budget-header"><span class="budget-name" style="font-size:13px;">${b.catName}</span><span class="budget-amounts">${fmt(spent)} / ${fmt(b.amount)}</span></div>
-      <div class="budget-bar"><div class="budget-fill ${status}" style="width:${pct}%"></div></div>
-    </div>`;
-  }).join('');
 }
 
 function checkBudgetAlerts() {
@@ -4922,7 +4958,10 @@ function renderChart() {
     const mTxs = txs.filter(t => {
       const td = new Date(t.date);
       if (td.getMonth() !== m || td.getFullYear() !== y) return false;
-      return txVisible(t, filter, state.currentUser);
+      // Gráfico: personal = mis personales + compartidos; shared = solo compartidos; all = todo
+      if (filter === 'personal') return (t.scope === 'personal' && t.user === state.currentUser) || t.scope === 'shared' || !t.scope;
+      if (filter === 'shared') return t.scope === 'shared' || !t.scope;
+      return true; // 'all'
     });
     data.push({
       label: months[m],
@@ -5031,10 +5070,19 @@ function renderTxList(el, txs, opts) {
     const scope = (t.scope === 'shared' || !t.scope)
       ? '<span class="scope-badge-shared" style="margin-left:4px;">⇄</span>'
       : '<span class="scope-badge-personal" style="margin-left:4px;">◉</span>';
+    // Icono: si el establecimiento tiene imagen, usarla; si no, icono de categoría
+    var estabIcon = '';
+    if (!isIncome && t.estabId) {
+      var estabs = getEstablishments ? getEstablishments() : [];
+      var estabObj = estabs.find(function(e){ return e.id === t.estabId; });
+      if (estabObj && estabObj.icon) estabIcon = estabObj.icon;
+    }
     const iconHtml = isIncome
       ? '<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.6"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>'
-      : '<div style="color:' + (t.catColor || 'var(--accent2)') + '">' + (CAT_ICONS[t.catIcon] || CAT_ICONS.imprevistos) + '</div>';
-    const iconBg = isIncome ? 'var(--green-dim)' : (t.catColor ? t.catColor + '22' : 'var(--bg3)');
+      : estabIcon
+        ? '<img src="' + estabIcon + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">'
+        : '<div style="color:' + (t.catColor || 'var(--accent2)') + '">' + (CAT_ICONS[t.catIcon] || CAT_ICONS.imprevistos) + '</div>';
+    const iconBg = isIncome ? 'var(--green-dim)' : estabIcon ? 'transparent' : (t.catColor ? t.catColor + '22' : 'var(--bg3)');
     const displayName = isIncome ? (t.concepto ? t.concepto : 'Ingreso') : (t.estabName || t.catName || 'Gasto');
     let nameHtml;
     if (clickEstab && !isIncome && t.estabId) {
