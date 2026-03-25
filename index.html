@@ -45,13 +45,8 @@
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
-html {
+html, body {
   height: 100%;
-  height: -webkit-fill-available;
-}
-body {
-  height: 100%;
-  height: -webkit-fill-available;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
@@ -68,7 +63,6 @@ body {
 /* ── APP SHELL ── */
 #app {
   height: 100%;
-  min-height: -webkit-fill-available;
   display: flex;
   flex-direction: column;
   max-width: 430px;
@@ -226,10 +220,8 @@ textarea { resize: none; }
   background: var(--bg2);
   border-top: 1px solid var(--border);
   padding: 8px 0;
-  padding-bottom: max(8px, calc(8px + env(safe-area-inset-bottom)));
+  padding-bottom: calc(8px + var(--safe-bottom));
   flex-shrink: 0;
-  position: relative;
-  z-index: 10;
 }
 .nav-item {
   flex: 1;
@@ -1431,6 +1423,9 @@ body.light-mode .login-glow {
           <button onclick="document.getElementById('profile-photo-input').click()" style="font-size:11px;color:var(--accent2);background:none;border:none;padding:4px 0;cursor:pointer;margin-top:4px;">Cambiar foto</button>
         </div>
       </div>
+      <div class="settings-item" onclick="runDiagnostic()" style="cursor:pointer;margin-top:4px;">
+        <span class="settings-label" style="color:var(--text3);font-size:12px;">🔍 Diagnóstico Supabase</span>
+      </div>
       <div class="settings-item" onclick="doLogout()" style="cursor:pointer;margin-top:4px;">
         <span class="settings-label" style="color:var(--red);">Cerrar sesión</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -2256,7 +2251,7 @@ async function checkSession() {
   const timeout = setTimeout(function() {
     console.warn('Supabase timeout — mostrando login');
     showScreen('screen-login');
-  }, 4000);
+  }, 10000);
 
   try {
     const { data, error } = await getSupa().auth.getSession();
@@ -2290,6 +2285,7 @@ async function checkSession() {
 
 async function loadAllDataFromSupabase() {
   try {
+    console.log('⏳ Cargando datos desde Supabase...');
     await Promise.all([
       loadCategoriesFromSupa(),
       loadEstabsFromSupa(),
@@ -2299,9 +2295,12 @@ async function loadAllDataFromSupabase() {
       loadTripsFromSupa(),
       loadGenBudgetFromSupa(),
     ]);
-    console.log('✅ Datos cargados desde Supabase');
+    var cats = JSON.parse(localStorage.getItem('cats')||'[]');
+    var txs = JSON.parse(localStorage.getItem('txs')||'[]');
+    var estabs = JSON.parse(localStorage.getItem('estabs')||'[]');
+    console.log('✅ Datos cargados desde Supabase — cats:', cats.length, 'txs:', txs.length, 'estabs:', estabs.length);
   } catch(e) {
-    console.warn('Error cargando desde Supabase, usando localStorage:', e);
+    console.warn('❌ Error cargando desde Supabase:', e);
   }
 }
 
@@ -2316,7 +2315,8 @@ function supaUserIdToName(uid) {
 // ── CATEGORÍAS ──
 async function loadCategoriesFromSupa() {
   const { data, error } = await getSupa().from('categories').select('*').order('created_at');
-  if (error || !data || !data.length) return; // No sobreescribir localStorage si Supabase vacío
+  if (error) { console.warn('categories error:', error); return; }
+  if (!data || !data.length) { console.log('categories: 0 filas en Supabase'); return; }
   // Preservar imágenes que solo están en localStorage (base64 no se guarda en Supabase)
   const localCats = JSON.parse(localStorage.getItem('cats') || '[]');
   const localCatMap = {};
@@ -2343,7 +2343,8 @@ async function deleteCategoryFromSupa(id) {
 // ── ESTABLECIMIENTOS ──
 async function loadEstabsFromSupa() {
   const { data, error } = await getSupa().from('establishments').select('*, categories(id,name,color,icon)').order('name');
-  if (error || !data || !data.length) return;
+  if (error) { console.warn('establishments error:', error); return; }
+  if (!data || !data.length) { console.log('establishments: 0 filas'); return; }
   // Preservar iconos que solo están en localStorage
   const localEstabs = JSON.parse(localStorage.getItem('estabs') || '[]');
   const localEstabMap = {};
@@ -2374,7 +2375,8 @@ async function loadTransactionsFromSupa() {
     .from('transactions')
     .select('*, categories(id,name,color,icon), establishments(id,name)')
     .order('date', { ascending: false });
-  if (error || !data || !data.length) return; // No sobreescribir si Supabase devuelve vacío
+  if (error) { console.warn('transactions error:', error); return; }
+  if (!data || !data.length) { console.log('transactions: 0 filas'); return; }
   const txs = data.map(r => ({
     id: r.id, type: r.type, scope: r.scope || 'shared',
     amount: parseFloat(r.amount), date: r.date,
@@ -4586,6 +4588,40 @@ function deleteBudget(id) {
   if (!confirm('¿Eliminar este presupuesto?')) return;
   saveBudgets(getBudgets().filter(b => b.id !== id));
   renderBudgets();
+}
+
+async function runDiagnostic() {
+  var lines = [];
+  // 1. Sesión
+  try {
+    var sess = await getSupa().auth.getSession();
+    var email = sess.data?.session?.user?.email || 'NO SESSION';
+    lines.push('Auth: ' + email);
+  } catch(e) { lines.push('Auth error: ' + e.message); }
+
+  // 2. localStorage
+  lines.push('cats local: ' + (JSON.parse(localStorage.getItem('cats')||'[]').length));
+  lines.push('txs local: ' + (JSON.parse(localStorage.getItem('txs')||'[]').length));
+  lines.push('estabs local: ' + (JSON.parse(localStorage.getItem('estabs')||'[]').length));
+  lines.push('gen_budget: ' + (localStorage.getItem('gen_budget') || 'null'));
+
+  // 3. Supabase directo
+  try {
+    var r1 = await getSupa().from('categories').select('id', {count:'exact', head:true});
+    lines.push('Supa cats: ' + (r1.count !== null ? r1.count : 'err:'+JSON.stringify(r1.error)));
+  } catch(e) { lines.push('Supa cats err: ' + e.message); }
+
+  try {
+    var r2 = await getSupa().from('transactions').select('id', {count:'exact', head:true});
+    lines.push('Supa txs: ' + (r2.count !== null ? r2.count : 'err:'+JSON.stringify(r2.error)));
+  } catch(e) { lines.push('Supa txs err: ' + e.message); }
+
+  try {
+    var r3 = await getSupa().from('general_budget').select('amount').limit(1);
+    lines.push('Supa budget: ' + (r3.data?.length ? r3.data[0].amount : 'vacio, err:'+JSON.stringify(r3.error)));
+  } catch(e) { lines.push('Supa budget err: ' + e.message); }
+
+  alert(lines.join('\n'));
 }
 
 function renderBudgets() {
