@@ -2483,16 +2483,28 @@ async function saveGenBudgetToSupa(amount) {
 // ── SUSCRIPCIONES ──
 async function loadSubsFromSupa() {
   const { data, error } = await getSupa().from('subscriptions').select('*').order('name');
-  if (error || !data || !data.length) return;
+  if (error) { console.warn('subs error:', error); return; }
+  if (!data || !data.length) return;
   const localSubs = JSON.parse(localStorage.getItem('subs') || '[]');
   const localSubMap = {};
   localSubs.forEach(function(s){ localSubMap[s.id] = s; });
-  const subs = data.map(r => ({
-    id: r.id, name: r.name, amount: parseFloat(r.amount),
-    day: r.day_of_month, user: r.payer, scope: r.scope || 'shared',
-    icon: r.icon || (localSubMap[r.id] ? localSubMap[r.id].icon : '') || ''
-  }));
+  // Si ya hay subs en local, respetar las que se borraron (no están en local pero sí en Supa)
+  const alreadyInitialized = localStorage.getItem('subs_initialized') === '1';
+  const subs = data
+    .filter(function(r) {
+      // Si ya inicializado, ignorar subs que no están en local (fueron borradas)
+      if (alreadyInitialized && !localSubMap[r.id]) return false;
+      return true;
+    })
+    .map(function(r) {
+      return {
+        id: r.id, name: r.name, amount: parseFloat(r.amount),
+        day: r.day_of_month, user: r.payer, scope: r.scope || 'shared',
+        icon: r.icon || (localSubMap[r.id] ? localSubMap[r.id].icon : '') || ''
+      };
+    });
   localStorage.setItem('subs', JSON.stringify(subs));
+  localStorage.setItem('subs_initialized', '1');
 }
 
 async function saveSubToSupa(s) {
@@ -2643,7 +2655,7 @@ function getCategories() { return getData('cats', [...DEFAULT_CATS]); }
 function getEstablishments() { return getData('estabs', []); }
 function getTransactions() { return getData('txs', []); }
 function getBudgets() { return getData('budgets', []); }
-function getSubscriptions() { return getData('subs', [...DEFAULT_SUBS]); }
+function getSubscriptions() { return getData('subs', []); }
 
 function saveCategories(d) { setData('cats', d); }
 function saveEstablishments(d) { setData('estabs', d); }
@@ -4777,9 +4789,11 @@ async function syncAllToSupabase() {
     }
   } catch(e) { errors.push('txs: ' + e.message); }
 
-  // Suscripciones (con iconos a Storage)
+  // Suscripciones (con iconos a Storage) — borrar todo en Supabase y resubir
   try {
     var subs = JSON.parse(localStorage.getItem('subs') || '[]');
+    // Borrar todas las subs en Supabase y resubir solo las locales
+    await getSupa().from('subscriptions').delete().neq('id', 'NEVER_MATCHES');
     for (var i = 0; i < subs.length; i++) {
       var s = subs[i];
       var iconUrl = '';
@@ -5181,6 +5195,7 @@ function saveSub() {
 function deleteSub(id) {
   if (!confirm('¿Eliminar esta suscripción?')) return;
   saveSubscriptions(getSubscriptions().filter(s => s.id !== id));
+  if (typeof deleteSubFromSupa === 'function' && state.supaUserId) deleteSubFromSupa(id);
   renderSubscriptions();
 }
 
@@ -5634,7 +5649,7 @@ function initApp() {
   migrateData();
   // Init default data if empty
   if (!localStorage.getItem('cats')) saveCategories(DEFAULT_CATS);
-  if (!localStorage.getItem('subs')) saveSubscriptions(DEFAULT_SUBS);
+  // DEFAULT_SUBS solo si no hay sesión de Supabase (primer uso offline)
 }
 
 // ═══════════════════════════════════════════ BOOT ═══════════════════
