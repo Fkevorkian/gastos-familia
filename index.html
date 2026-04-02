@@ -2739,8 +2739,8 @@ function renderAllNavs(activeTab) {
 }
 
 function switchNav(tab) {
-  const screens = { home:'screen-home', cats:'screen-cats', estab:'screen-estab', stats:'screen-stats', budgets:'screen-budgets', subs:'screen-subs', viajes:'screen-viajes' }; // subs accesible desde presupuesto
-  var navTab = tab === 'subs' ? 'cats' : tab; // subs pertenece a presupuesto
+  const screens = { home:'screen-home', cats:'screen-cats', estab:'screen-estab', stats:'screen-stats', budgets:'screen-budgets', subs:'screen-subs', viajes:'screen-viajes' };
+  var navTab = tab === 'subs' ? 'cats' : tab;
   renderAllNavs(navTab);
   showScreen(screens[tab]);
   if (tab === 'home') { renderDashboard(); }
@@ -2750,6 +2750,35 @@ function switchNav(tab) {
   if (tab === 'budgets') { renderBudgets(); }
   if (tab === 'subs') { renderSubscriptions(); }
   if (tab === 'viajes') { renderViajes(); }
+  // Recargar datos de Supabase en segundo plano al cambiar de pestaña
+  if (typeof refreshFromSupabase === 'function') refreshFromSupabase(tab);
+}
+
+async function refreshFromSupabase(tab) {
+  if (!state.supaUserId) return;
+  try {
+    if (tab === 'estab') {
+      await loadEstabsFromSupa();
+      renderEstablishments();
+    } else if (tab === 'cats') {
+      await loadCategoriesFromSupa();
+      renderCategories();
+    } else if (tab === 'subs') {
+      await loadSubsFromSupa();
+      renderSubscriptions();
+    } else if (tab === 'viajes') {
+      await loadTripsFromSupa();
+      renderViajes();
+    } else if (tab === 'home') {
+      await loadTransactionsFromSupa();
+      renderDashboard();
+    } else if (tab === 'stats') {
+      await loadTransactionsFromSupa();
+      renderStats();
+    }
+  } catch(e) {
+    console.warn('refreshFromSupabase error:', e);
+  }
 }
 
 // ═══════════════════════════════════════════ SHEETS ═══════════════════
